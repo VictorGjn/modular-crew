@@ -39,7 +39,7 @@ defaults:
 
 budget:
   maxCost: 5.00
-  maxTokens: 500_000
+  maxTokens: 500000
 
 # ─── Flow ────────────────────────────────────────────────
 
@@ -67,7 +67,7 @@ flow:
       - frontend_spec
       - contracts
     context:
-      depth: 1            # Detail level — signatures + docstrings
+      depth: detail            # Detail level — signatures + docstrings
       sources:
         - task
     timeout: 120
@@ -101,7 +101,7 @@ flow:
           - backend_code
           - backend_tests
         context:
-          depth: 2         # Summary — signatures only for surrounding code
+          depth: summary         # Summary — signatures only for surrounding code
           sources:
             - backend_spec
             - contracts
@@ -131,7 +131,7 @@ flow:
           - frontend_code
           - frontend_tests
         context:
-          depth: 2
+          depth: summary
           sources:
             - frontend_spec
             - contracts
@@ -170,7 +170,7 @@ flow:
       - review_issues
       - review_summary
     context:
-      depth: 0             # Full depth — reviewer sees everything
+      depth: full             # Full depth — reviewer sees everything
       sources:
         - design
         - contracts
@@ -208,7 +208,7 @@ flow:
       - backend_code       # Overwrites previous backend_code fact
       - frontend_code      # Overwrites previous frontend_code fact
     context:
-      depth: 0
+      depth: full
       sources:
         - review_issues
         - backend_code
@@ -216,7 +216,7 @@ flow:
     retry:
       step: reviewer       # After revising, loop back to reviewer
       maxAttempts: 2
-      onMaxAttempts: continue   # Ship it after 2 revision rounds
+      onMaxAttempts: proceed   # Ship it after 2 revision rounds
     timeout: 180
 
   # ── Step 5: Final approval gate (optional) ─────────────
@@ -243,7 +243,7 @@ flow:
     publishes:
       - delivery_summary
     context:
-      depth: 3             # Headlines only — just the structure
+      depth: headlines             # Headlines only — just the structure
       sources:
         - design
         - review_summary

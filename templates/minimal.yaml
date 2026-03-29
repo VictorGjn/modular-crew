@@ -22,7 +22,7 @@ defaults:
 
 budget:
   maxCost: 0.50        # USD hard cap for the entire run
-  maxTokens: 100_000   # total token ceiling across all steps
+  maxTokens: 100000    # total token ceiling across all steps
 
 # ─── Flow ────────────────────────────────────────────────
 # A flow is a DAG of named steps.
@@ -43,6 +43,6 @@ flow:
     publishes:
       - answer
     context:
-      depth: 0          # Full depth — include everything available
+      depth: full       # Full depth — include everything available
       sources:
         - task          # The task description provided at runtime
