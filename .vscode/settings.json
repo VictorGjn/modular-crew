@@ -1,0 +1,13 @@
+{
+  "yaml.schemas": {
+    "./schema/team.schema.json": ["team.yaml", "templates/*.yaml"]
+  },
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml",
+    "editor.tabSize": 2,
+    "editor.autoIndent": "advanced"
+  }
+}
