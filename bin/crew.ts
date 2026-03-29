@@ -13,8 +13,13 @@ import type { TeamDefinition, Fact } from '../src/types.js';
 import { estimateCost, DEPTH_TOKEN_RATIOS } from '../src/types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const pkg = JSON.parse(readFileSync(resolve(__dirname, '..', 'package.json'), 'utf-8'));
-const TEMPLATES_DIR = resolve(__dirname, '..', 'templates');
+// When compiled: dist/bin/crew.js → need ../.. to reach project root
+// When running source: bin/crew.ts → need .. to reach project root
+const PROJECT_ROOT = existsSync(resolve(__dirname, '..', 'package.json'))
+  ? resolve(__dirname, '..')
+  : resolve(__dirname, '..', '..');
+const pkg = JSON.parse(readFileSync(resolve(PROJECT_ROOT, 'package.json'), 'utf-8'));
+const TEMPLATES_DIR = resolve(PROJECT_ROOT, 'templates');
 
 const program = new Command();
 
