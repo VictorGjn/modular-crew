@@ -35,7 +35,8 @@
     "ora": "^9.3.0",
     "ulid": "^2.3.0",
     "yaml": "^2.4.0",
-    "zod": "^3.23.0"
+    "zod": "^3.23.0",
+    "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
     "@types/bun": "^1.2.0",
