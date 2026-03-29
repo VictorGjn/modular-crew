@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../schemas/crew.schema.json
+
+# ─────────────────────────────────────────────────────────
+# minimal.yaml — Single-agent learning template
+# Start here. One agent, one task, no orchestration.
+# ─────────────────────────────────────────────────────────
+
+$schema: "../schemas/crew.schema.json"
+version: 1
+name: minimal-crew
+description: >
+  Single agent with no flow dependencies.
+  Use this as a learning template to understand the crew YAML format
+  before building multi-agent workflows.
+
+defaults:
+  provider: anthropic
+  model: claude-sonnet-4-20250514
+  maxTurns: 5
+  tokenBudget: 8000
+  maxOutputTokens: 4096
+
+budget:
+  maxCost: 0.50        # USD hard cap for the entire run
+  maxTokens: 100_000   # total token ceiling across all steps
+
+# ─── Flow ────────────────────────────────────────────────
+# A flow is a DAG of named steps.
+# This minimal template has exactly one step.
+# ─────────────────────────────────────────────────────────
+
+flow:
+  solve:
+    agent:
+      model: claude-sonnet-4-20250514
+      system: |
+        You are a helpful generalist assistant.
+        Think step-by-step. Be concise but thorough.
+        When unsure, state your uncertainty clearly.
+      tools:
+        - web_search
+        - file_read
+    publishes:
+      - answer
+    context:
+      depth: 0          # Full depth — include everything available
+      sources:
+        - task          # The task description provided at runtime

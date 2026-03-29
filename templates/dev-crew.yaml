@@ -1,0 +1,249 @@
+# yaml-language-server: $schema=../schemas/crew.schema.json
+
+# ─────────────────────────────────────────────────────────
+# dev-crew.yaml — Full-stack feature delivery crew
+#
+# Flow topology:
+#
+#   architect
+#       │
+#       ├──────────┐
+#       ▼          ▼
+#   backend    frontend      (parallel)
+#       │          │
+#       └────┬─────┘
+#            ▼
+#        reviewer
+#            │
+#       ┌────┴──── when: not approved
+#       ▼
+#     revise ──► reviewer    (conditional loop, max 2 retries)
+#
+# ─────────────────────────────────────────────────────────
+
+$schema: "../schemas/crew.schema.json"
+version: 1
+name: dev-crew
+description: >
+  Full-stack feature delivery pipeline.
+  An architect decomposes the task, backend and frontend agents
+  work in parallel, then a reviewer gates the output with a
+  conditional revise loop (max 2 attempts).
+
+defaults:
+  provider: anthropic
+  model: claude-sonnet-4-20250514
+  maxTurns: 10
+  tokenBudget: 32000
+  maxOutputTokens: 8192
+
+budget:
+  maxCost: 5.00
+  maxTokens: 500_000
+
+# ─── Flow ────────────────────────────────────────────────
+
+flow:
+
+  # ── Step 1: Architect decomposes the feature ───────────
+  architect:
+    agent:
+      model: claude-sonnet-4-20250514
+      system: |
+        You are a senior software architect.
+        Given a feature request, produce:
+        1. A concise technical design (max 500 words)
+        2. A backend_spec: API endpoints, data models, key logic
+        3. A frontend_spec: components, state, API integration points
+        4. Shared contracts: TypeScript interfaces for API boundaries
+        Output valid YAML under keys: design, backend_spec, frontend_spec, contracts.
+      tools:
+        - web_search
+        - file_read
+        - codebase_search
+    publishes:
+      - design
+      - backend_spec
+      - frontend_spec
+      - contracts
+    context:
+      depth: 1            # Detail level — signatures + docstrings
+      sources:
+        - task
+    timeout: 120
+
+  # ── Step 2: Parallel implementation ────────────────────
+  implement:
+    after:
+      - architect
+    parallel:
+      backend:
+        agent:
+          model: claude-sonnet-4-20250514
+          system: |
+            You are a backend engineer specializing in TypeScript/Node.js.
+            Implement the backend according to the spec provided.
+            Follow these standards:
+            - Express or Fastify handlers
+            - Zod validation on all inputs
+            - Repository pattern for data access
+            - Return complete, runnable code files
+            Output a record of { filepath: content } pairs.
+          tools:
+            - file_read
+            - file_write
+            - codebase_search
+            - terminal
+        requires:
+          - backend_spec
+          - contracts
+        publishes:
+          - backend_code
+          - backend_tests
+        context:
+          depth: 2         # Summary — signatures only for surrounding code
+          sources:
+            - backend_spec
+            - contracts
+        timeout: 180
+
+      frontend:
+        agent:
+          model: claude-sonnet-4-20250514
+          system: |
+            You are a frontend engineer specializing in React + TypeScript.
+            Implement the frontend according to the spec provided.
+            Follow these standards:
+            - Functional components with hooks
+            - TanStack Query for server state
+            - Tailwind CSS for styling
+            - Co-locate component tests
+            Output a record of { filepath: content } pairs.
+          tools:
+            - file_read
+            - file_write
+            - codebase_search
+            - terminal
+        requires:
+          - frontend_spec
+          - contracts
+        publishes:
+          - frontend_code
+          - frontend_tests
+        context:
+          depth: 2
+          sources:
+            - frontend_spec
+            - contracts
+        timeout: 180
+
+  # ── Step 3: Code review ────────────────────────────────
+  reviewer:
+    after:
+      - implement
+    agent:
+      model: claude-sonnet-4-20250514
+      system: |
+        You are a senior code reviewer. Evaluate the implementation against:
+        1. Correctness — does the code fulfill the design?
+        2. Contracts — do backend and frontend agree on API shapes?
+        3. Quality — error handling, edge cases, naming, structure
+        4. Tests — adequate coverage of happy + error paths
+
+        Output a structured review:
+          verdict: "approved" | "changes_requested"
+          summary: one-paragraph assessment
+          issues: list of { file, line, severity, description }
+          praise: list of things done well
+      tools:
+        - file_read
+        - codebase_search
+    requires:
+      - design
+      - contracts
+      - backend_code
+      - backend_tests
+      - frontend_code
+      - frontend_tests
+    publishes:
+      - review_verdict
+      - review_issues
+      - review_summary
+    context:
+      depth: 0             # Full depth — reviewer sees everything
+      sources:
+        - design
+        - contracts
+        - backend_code
+        - frontend_code
+    timeout: 120
+
+  # ── Step 4: Conditional revise loop ────────────────────
+  revise:
+    after:
+      - reviewer
+    when:
+      fact: review_verdict
+      not: approved
+    agent:
+      model: claude-sonnet-4-20250514
+      system: |
+        You are a senior developer addressing code review feedback.
+        For each issue flagged by the reviewer:
+        1. Understand the concern
+        2. Implement the fix
+        3. Explain what you changed and why
+        Output updated { filepath: content } pairs for all changed files.
+      tools:
+        - file_read
+        - file_write
+        - codebase_search
+        - terminal
+    requires:
+      - review_issues
+      - backend_code
+      - frontend_code
+      - contracts
+    publishes:
+      - backend_code       # Overwrites previous backend_code fact
+      - frontend_code      # Overwrites previous frontend_code fact
+    context:
+      depth: 0
+      sources:
+        - review_issues
+        - backend_code
+        - frontend_code
+    retry:
+      step: reviewer       # After revising, loop back to reviewer
+      maxAttempts: 2
+      onMaxAttempts: continue   # Ship it after 2 revision rounds
+    timeout: 180
+
+  # ── Step 5: Final approval gate (optional) ─────────────
+  ship:
+    after:
+      - reviewer
+    when:
+      fact: review_verdict
+      is: approved
+    agent:
+      model: claude-sonnet-4-20250514
+      system: |
+        Summarize the delivered feature:
+        - What was built (one paragraph)
+        - Files created/modified (list)
+        - Key architectural decisions
+        - Remaining TODOs or tech debt
+      tools: []
+    requires:
+      - design
+      - review_summary
+      - backend_code
+      - frontend_code
+    publishes:
+      - delivery_summary
+    context:
+      depth: 3             # Headlines only — just the structure
+      sources:
+        - design
+        - review_summary
