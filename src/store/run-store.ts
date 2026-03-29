@@ -1,13 +1,14 @@
 /**
- * modular-crew — SQLite Run Store (Bun native)
+ * modular-crew — SQLite Run Store
  *
  * Persistent storage for run history, step execution state, facts, and trace events.
- * Uses bun:sqlite (built-in, zero dependencies, WAL mode).
+ * Uses better-sqlite3 (synchronous, WAL mode) for fast, reliable local persistence.
  *
  * DB location: .crew/runs.db in project directory (configurable via constructor).
  */
 
-import { Database } from 'bun:sqlite';
+import Database from 'better-sqlite3';
+import type BetterSqlite3 from 'better-sqlite3';
 import { ulid } from 'ulid';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -78,8 +79,6 @@ export interface ResumableState {
   facts: FactRow[];
 }
 
-// ── Constants ────────────────────────────────────────────────────────────────
-
 const DEFAULT_DB_PATH = '.crew/runs.db';
 
 const STEP_MUTABLE = new Set([
@@ -90,22 +89,19 @@ const STEP_MUTABLE = new Set([
 // ── RunStore ─────────────────────────────────────────────────────────────────
 
 export class RunStore {
-  readonly db: Database;
+  readonly db: BetterSqlite3.Database;
+  private _stmtCache = new Map<string, BetterSqlite3.Statement>();
 
   constructor(dbPath: string = DEFAULT_DB_PATH) {
     mkdirSync(dirname(dbPath), { recursive: true });
-
     this.db = new Database(dbPath);
-    this.db.exec('PRAGMA journal_mode = WAL');
-    this.db.exec('PRAGMA synchronous = NORMAL');
-    this.db.exec('PRAGMA foreign_keys = ON');
-
+    this.db.pragma('journal_mode = WAL');
+    this.db.pragma('synchronous = NORMAL');
+    this.db.pragma('foreign_keys = ON');
     this._createTables();
   }
 
-  close(): void {
-    this.db.close();
-  }
+  close(): void { this.db.close(); }
 
   // ── Run Methods ──────────────────────────────────────────────────────────
 
@@ -113,24 +109,24 @@ export class RunStore {
     const id = ulid();
     this.db.prepare(`
       INSERT INTO runs (id, team_file, team_name, task, status, started_at, total_tokens, total_cost_usd)
-      VALUES (?, ?, ?, ?, 'pending', ?, 0, 0.0)
-    `).run(id, teamFile, teamName, task, new Date().toISOString());
+      VALUES (@id, @team_file, @team_name, @task, 'pending', @started_at, 0, 0.0)
+    `).run({ id, team_file: teamFile, team_name: teamName, task, started_at: new Date().toISOString() });
     return id;
   }
 
   updateRunStatus(runId: string, status: string, error?: string): void {
-    this.db.prepare(`UPDATE runs SET status = ?, error = ? WHERE id = ?`)
-      .run(status, error ?? null, runId);
+    this.db.prepare(`UPDATE runs SET status = @status, error = @error WHERE id = @id`)
+      .run({ id: runId, status, error: error ?? null });
   }
 
   completeRun(runId: string, status: string, totals: { tokens: number; cost: number }): void {
     this.db.prepare(`
-      UPDATE runs SET status = ?, completed_at = ?, total_tokens = ?, total_cost_usd = ? WHERE id = ?
-    `).run(status, new Date().toISOString(), totals.tokens, totals.cost, runId);
+      UPDATE runs SET status = @status, completed_at = @completed_at, total_tokens = @total_tokens, total_cost_usd = @total_cost_usd WHERE id = @id
+    `).run({ id: runId, status, completed_at: new Date().toISOString(), total_tokens: totals.tokens, total_cost_usd: totals.cost });
   }
 
   getRun(runId: string): RunRow | null {
-    return this.db.prepare(`SELECT * FROM runs WHERE id = ?`).get(runId) as RunRow | null;
+    return (this.db.prepare(`SELECT * FROM runs WHERE id = ?`).get(runId) as RunRow | undefined) ?? null;
   }
 
   listRuns(limit: number = 50): RunSummary[] {
@@ -145,56 +141,55 @@ export class RunStore {
   createStep(runId: string, stepId: string, agentId?: string): void {
     this.db.prepare(`
       INSERT INTO steps (id, run_id, step_id, agent_id, status, attempt, tokens_in, tokens_out, cost_usd, duration_ms)
-      VALUES (?, ?, ?, ?, 'pending', 1, 0, 0, 0.0, 0)
-    `).run(ulid(), runId, stepId, agentId ?? null);
+      VALUES (@id, @run_id, @step_id, @agent_id, 'pending', 1, 0, 0, 0.0, 0)
+    `).run({ id: ulid(), run_id: runId, step_id: stepId, agent_id: agentId ?? null });
   }
 
   updateStep(runId: string, stepId: string, patch: Partial<StepRow>): void {
     const keys = Object.keys(patch).filter(k => STEP_MUTABLE.has(k));
     if (keys.length === 0) return;
 
-    const setClauses = keys.map(k => `${k} = $${k}`).join(', ');
-    const params: Record<string, unknown> = { $run_id: runId, $step_id: stepId };
-    for (const k of keys) {
-      params[`$${k}`] = (patch as Record<string, unknown>)[k] ?? null;
+    const cacheKey = keys.sort().join(',');
+    let stmt = this._stmtCache.get(cacheKey);
+    if (!stmt) {
+      const setClauses = keys.map(k => `${k} = @${k}`).join(', ');
+      stmt = this.db.prepare(`UPDATE steps SET ${setClauses} WHERE run_id = @run_id AND step_id = @step_id`);
+      this._stmtCache.set(cacheKey, stmt);
     }
 
-    this.db.prepare(`UPDATE steps SET ${setClauses} WHERE run_id = $run_id AND step_id = $step_id`)
-      .run(params as any);
+    const params: Record<string, unknown> = { run_id: runId, step_id: stepId };
+    for (const k of keys) params[k] = (patch as Record<string, unknown>)[k] ?? null;
+    stmt.run(params);
   }
 
   getRunSteps(runId: string): StepRow[] {
-    return this.db.prepare(`SELECT * FROM steps WHERE run_id = ? ORDER BY id ASC`)
-      .all(runId) as StepRow[];
+    return this.db.prepare(`SELECT * FROM steps WHERE run_id = ? ORDER BY id ASC`).all(runId) as StepRow[];
   }
 
   // ── Fact Methods ─────────────────────────────────────────────────────────
 
   publishFact(runId: string, stepId: string, fact: Fact): number {
     let supersedesId: number | null = null;
-
     if (fact.supersedes) {
-      const row = this.db.prepare(
-        `SELECT id FROM facts WHERE run_id = ? AND key = ? ORDER BY id DESC LIMIT 1`
-      ).get(runId, fact.supersedes) as { id: number } | null;
+      const row = this.db.prepare(`SELECT id FROM facts WHERE run_id = @run_id AND key = @key ORDER BY id DESC LIMIT 1`)
+        .get({ run_id: runId, key: fact.supersedes }) as { id: number } | undefined;
       supersedesId = row?.id ?? null;
     }
 
-    const result = this.db.prepare(`
+    const info = this.db.prepare(`
       INSERT INTO facts (run_id, step_id, key, value, type, source, confidence, published_at, supersedes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      runId, stepId, fact.key, fact.value,
-      fact.status ?? 'provisional', fact.source, 1.0,
-      new Date(fact.timestamp).toISOString(), supersedesId
-    );
+      VALUES (@run_id, @step_id, @key, @value, @type, @source, @confidence, @published_at, @supersedes)
+    `).run({
+      run_id: runId, step_id: stepId, key: fact.key, value: fact.value,
+      type: fact.status ?? 'provisional', source: fact.source, confidence: 1.0,
+      published_at: new Date(fact.timestamp).toISOString(), supersedes: supersedesId,
+    });
 
-    return Number(result.lastInsertRowid);
+    return Number(info.lastInsertRowid);
   }
 
   getRunFacts(runId: string): FactRow[] {
-    return this.db.prepare(`SELECT * FROM facts WHERE run_id = ? ORDER BY id ASC`)
-      .all(runId) as FactRow[];
+    return this.db.prepare(`SELECT * FROM facts WHERE run_id = ? ORDER BY id ASC`).all(runId) as FactRow[];
   }
 
   // ── Event Methods ────────────────────────────────────────────────────────
@@ -202,23 +197,20 @@ export class RunStore {
   appendEvent(runId: string, event: TraceEvent): void {
     this.db.prepare(`
       INSERT INTO events (run_id, step_id, type, data, timestamp)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(
-      runId, event.stepId ?? null, event.type,
-      JSON.stringify(event.data), new Date(event.timestamp).toISOString()
-    );
+      VALUES (@run_id, @step_id, @type, @data, @timestamp)
+    `).run({
+      run_id: runId, step_id: event.stepId ?? null, type: event.type,
+      data: JSON.stringify(event.data), timestamp: new Date(event.timestamp).toISOString(),
+    });
   }
 
   // ── Resume Support ───────────────────────────────────────────────────────
 
   getResumableState(runId: string): ResumableState {
     const succeededSteps = (
-      this.db.prepare(`SELECT step_id FROM steps WHERE run_id = ? AND status = 'succeeded'`)
-        .all(runId) as Array<{ step_id: string }>
+      this.db.prepare(`SELECT step_id FROM steps WHERE run_id = ? AND status = 'succeeded'`).all(runId) as Array<{ step_id: string }>
     ).map(r => r.step_id);
-
-    const facts = this.getRunFacts(runId);
-    return { succeededSteps, facts };
+    return { succeededSteps, facts: this.getRunFacts(runId) };
   }
 
   // ── Schema ───────────────────────────────────────────────────────────────
@@ -226,60 +218,39 @@ export class RunStore {
   private _createTables(): void {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS runs (
-        id              TEXT    PRIMARY KEY,
-        team_file       TEXT    NOT NULL,
-        team_name       TEXT    NOT NULL,
-        task            TEXT    NOT NULL,
-        status          TEXT    NOT NULL DEFAULT 'pending',
-        started_at      TEXT    NOT NULL,
-        completed_at    TEXT,
-        total_tokens    INTEGER NOT NULL DEFAULT 0,
-        total_cost_usd  REAL    NOT NULL DEFAULT 0.0,
-        error           TEXT,
-        metadata        TEXT
+        id TEXT PRIMARY KEY, team_file TEXT NOT NULL, team_name TEXT NOT NULL,
+        task TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
+        started_at TEXT NOT NULL, completed_at TEXT,
+        total_tokens INTEGER NOT NULL DEFAULT 0, total_cost_usd REAL NOT NULL DEFAULT 0.0,
+        error TEXT, metadata TEXT
       );
       CREATE TABLE IF NOT EXISTS steps (
-        id              TEXT    PRIMARY KEY,
-        run_id          TEXT    NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
-        step_id         TEXT    NOT NULL,
-        agent_id        TEXT,
-        status          TEXT    NOT NULL DEFAULT 'pending',
-        attempt         INTEGER NOT NULL DEFAULT 1,
-        started_at      TEXT,
-        completed_at    TEXT,
-        input           TEXT,
-        output          TEXT,
-        error           TEXT,
-        tokens_in       INTEGER NOT NULL DEFAULT 0,
-        tokens_out      INTEGER NOT NULL DEFAULT 0,
-        cost_usd        REAL    NOT NULL DEFAULT 0.0,
-        duration_ms     INTEGER NOT NULL DEFAULT 0,
+        id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+        step_id TEXT NOT NULL, agent_id TEXT,
+        status TEXT NOT NULL DEFAULT 'pending', attempt INTEGER NOT NULL DEFAULT 1,
+        started_at TEXT, completed_at TEXT, input TEXT, output TEXT, error TEXT,
+        tokens_in INTEGER NOT NULL DEFAULT 0, tokens_out INTEGER NOT NULL DEFAULT 0,
+        cost_usd REAL NOT NULL DEFAULT 0.0, duration_ms INTEGER NOT NULL DEFAULT 0,
         UNIQUE (run_id, step_id)
       );
       CREATE TABLE IF NOT EXISTS facts (
-        id              INTEGER PRIMARY KEY AUTOINCREMENT,
-        run_id          TEXT    NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
-        step_id         TEXT    NOT NULL,
-        key             TEXT    NOT NULL,
-        value           TEXT    NOT NULL,
-        type            TEXT    NOT NULL DEFAULT 'provisional',
-        source          TEXT    NOT NULL,
-        confidence      REAL    NOT NULL DEFAULT 1.0,
-        published_at    TEXT    NOT NULL,
-        supersedes      INTEGER REFERENCES facts(id)
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+        step_id TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL,
+        type TEXT NOT NULL DEFAULT 'provisional', source TEXT NOT NULL,
+        confidence REAL NOT NULL DEFAULT 1.0, published_at TEXT NOT NULL,
+        supersedes INTEGER REFERENCES facts(id)
       );
       CREATE TABLE IF NOT EXISTS events (
-        id              INTEGER PRIMARY KEY AUTOINCREMENT,
-        run_id          TEXT    NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
-        step_id         TEXT,
-        type            TEXT    NOT NULL,
-        data            TEXT    NOT NULL DEFAULT '{}',
-        timestamp       TEXT    NOT NULL
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+        step_id TEXT, type TEXT NOT NULL,
+        data TEXT NOT NULL DEFAULT '{}', timestamp TEXT NOT NULL
       );
-      CREATE INDEX IF NOT EXISTS idx_steps_run       ON steps  (run_id);
-      CREATE INDEX IF NOT EXISTS idx_facts_run       ON facts  (run_id);
-      CREATE INDEX IF NOT EXISTS idx_facts_run_key   ON facts  (run_id, key);
-      CREATE INDEX IF NOT EXISTS idx_events_run      ON events (run_id);
+      CREATE INDEX IF NOT EXISTS idx_steps_run ON steps(run_id);
+      CREATE INDEX IF NOT EXISTS idx_facts_run ON facts(run_id);
+      CREATE INDEX IF NOT EXISTS idx_facts_run_key ON facts(run_id, key);
+      CREATE INDEX IF NOT EXISTS idx_events_run ON events(run_id);
     `);
   }
 }
