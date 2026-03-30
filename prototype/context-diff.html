@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>modular-crew // Context Diff</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & Root ───────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-deep: #020203;
+    --bg-base: #050506;
+    --bg-elevated: #0a0a0c;
+    --surface: rgba(255,255,255,0.05);
+    --surface-hover: rgba(255,255,255,0.08);
+    --fg: #EDEDEF;
+    --fg-muted: #8A8F98;
+    --fg-dim: #55585f;
+    --accent: #5E6AD2;
+    --accent-glow: rgba(94,106,210,0.2);
+    --cta: #F97316;
+    --success: #22C55E;
+    --error: #EF4444;
+    --warning: #F59E0B;
+    --border: rgba(255,255,255,0.08);
+    --border-hover: rgba(255,255,255,0.14);
+    --radius-card: 12px;
+    --radius-btn: 8px;
+    --radius-modal: 16px;
+    --ease: cubic-bezier(0.16,1,0.3,1);
+    --depth-full: #EF4444;
+    --depth-detail: #F59E0B;
+    --depth-summary: #22C55E;
+    --depth-headlines: #3B82F6;
+  }
+
+  html { font-size: 16px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg-deep);
+    color: var(--fg);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Utilities ──────────────────────────────────────── */
+  .mono { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
+  .muted { color: var(--fg-muted); }
+  .dim { color: var(--fg-dim); }
+
+  /* ── Layout ─────────────────────────────────────────── */
+  .page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 40px 80px;
+  }
+
+  /* ── Section 1: Header ──────────────────────────────── */
+  .header {
+    padding: 48px 0 40px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header__brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+
+  .header__logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .header__logo svg { color: var(--accent); }
+
+  .header__title {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--fg);
+  }
+
+  .header__title span {
+    color: var(--fg-muted);
+    font-weight: 400;
+  }
+
+  .header__team {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent);
+    background: var(--accent-glow);
+    padding: 3px 10px;
+    border-radius: 100px;
+    margin-left: 16px;
+  }
+
+  .header__view-title {
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    margin: 20px 0 24px;
+    color: var(--fg);
+  }
+
+  .header__task {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 680px;
+  }
+
+  .header__task-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--fg-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+
+  .header__task-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-btn);
+    padding: 10px 14px;
+    color: var(--fg);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 400;
+    outline: none;
+    transition: border-color 200ms var(--ease), box-shadow 200ms var(--ease);
+  }
+
+  .header__task-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+
+  /* ── Section 2: Agent Cards ─────────────────────────── */
+  .agents {
+    padding: 40px 0 0;
+  }
+
+  .agents__label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-muted);
+    margin-bottom: 20px;
+  }
+
+  .agents__scroll {
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: 20px;
+    scroll-snap-type: x proximity;
+    -ms-overflow-style: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
+    align-items: stretch;
+  }
+
+  .agents__scroll::-webkit-scrollbar { height: 6px; }
+  .agents__scroll::-webkit-scrollbar-track { background: transparent; }
+  .agents__scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+  /* ── Card ────────────────────────────────────────────── */
+  .card {
+    min-width: 210px;
+    max-width: 210px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    padding: 20px;
+    scroll-snap-align: start;
+    transition: transform 250ms var(--ease), border-color 250ms var(--ease), box-shadow 250ms var(--ease);
+    cursor: default;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: var(--radius-card) var(--radius-card) 0 0;
+    transition: opacity 200ms var(--ease);
+  }
+
+  .card[data-depth="full"]::before { background: var(--depth-full); }
+  .card[data-depth="detail"]::before { background: var(--depth-detail); }
+  .card[data-depth="summary"]::before { background: var(--depth-summary); }
+  .card[data-depth="headlines"]::before { background: var(--depth-headlines); }
+
+  .card:hover {
+    transform: translateY(-4px) scale(1.02);
+    border-color: var(--border-hover);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px var(--border-hover);
+    z-index: 10;
+  }
+
+  .card__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .card__step {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--fg-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+
+  .card__agent {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--fg);
+  }
+
+  .card__model {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 100px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .card__model--sonnet {
+    background: rgba(94,106,210,0.15);
+    color: var(--accent);
+  }
+
+  .card__model--haiku {
+    background: rgba(34,197,94,0.15);
+    color: var(--success);
+  }
+
+  /* Depth bar */
+  .card__depth {
+    margin-bottom: 16px;
+  }
+
+  .card__depth-track {
+    height: 4px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+
+  .card__depth-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 800ms var(--ease);
+  }
+
+  .card[data-depth="full"] .card__depth-fill { width: 100%; background: var(--depth-full); }
+  .card[data-depth="detail"] .card__depth-fill { width: 75%; background: var(--depth-detail); }
+  .card[data-depth="summary"] .card__depth-fill { width: 50%; background: var(--depth-summary); }
+  .card[data-depth="headlines"] .card__depth-fill { width: 25%; background: var(--depth-headlines); }
+
+  .card__depth-label {
+    font-size: 11px;
+    font-weight: 500;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .card[data-depth="full"] .card__depth-name { color: var(--depth-full); }
+  .card[data-depth="detail"] .card__depth-name { color: var(--depth-detail); }
+  .card[data-depth="summary"] .card__depth-name { color: var(--depth-summary); }
+  .card[data-depth="headlines"] .card__depth-name { color: var(--depth-headlines); }
+
+  .card__depth-pct { color: var(--fg-dim); }
+
+  /* Tokens */
+  .card__tokens {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--fg);
+    margin-bottom: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .card__tokens-unit {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--fg-muted);
+    margin-left: 4px;
+  }
+
+  .card__cost {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--fg-muted);
+    margin-bottom: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Context window viz */
+  .card__ctx {
+    margin-bottom: 14px;
+  }
+
+  .card__ctx-bar {
+    display: flex;
+    height: 40px;
+    border-radius: 6px;
+    overflow: hidden;
+    gap: 1px;
+    background: rgba(255,255,255,0.03);
+  }
+
+  .card__ctx-seg {
+    transition: flex 600ms var(--ease);
+    position: relative;
+    min-width: 2px;
+  }
+
+  .card__ctx-seg--system { background: #2a2a2e; }
+  .card__ctx-seg--task { background: #3a3a40; }
+  .card__ctx-seg--upstream { background: var(--cta); opacity: 0.7; }
+  .card__ctx-seg--deliverables { background: var(--accent); opacity: 0.6; }
+
+  .card[data-depth="full"] .card__ctx-seg--context { background: var(--depth-full); opacity: 0.6; }
+  .card[data-depth="detail"] .card__ctx-seg--context { background: var(--depth-detail); opacity: 0.6; }
+  .card[data-depth="summary"] .card__ctx-seg--context { background: var(--depth-summary); opacity: 0.6; }
+  .card[data-depth="headlines"] .card__ctx-seg--context { background: var(--depth-headlines); opacity: 0.6; }
+
+  .card__ctx-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .card__ctx-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    font-weight: 500;
+    color: var(--fg-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .card__ctx-legend-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Sources */
+  .card__sources {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: auto;
+  }
+
+  .card__source {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 100px;
+    background: var(--surface);
+    color: var(--fg-muted);
+    border: 1px solid var(--border);
+    transition: background 150ms var(--ease);
+  }
+
+  .card:hover .card__source {
+    background: var(--surface-hover);
+  }
+
+  /* ── Arrow connector ────────────────────────────────── */
+  .arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    min-width: 28px;
+    flex-shrink: 0;
+    color: var(--fg-dim);
+    align-self: center;
+  }
+
+  /* ── Section 3: Comparison ──────────────────────────── */
+  .comparison {
+    margin-top: 48px;
+    padding-top: 40px;
+    border-top: 1px solid var(--border);
+  }
+
+  .comparison__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .comparison__title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-muted);
+  }
+
+  .comparison__controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .btn {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 7px 14px;
+    border-radius: var(--radius-btn);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--fg-muted);
+    cursor: pointer;
+    transition: all 180ms var(--ease);
+    outline: none;
+  }
+
+  .btn:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-hover);
+    color: var(--fg);
+  }
+
+  .btn--active {
+    background: var(--accent-glow);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .btn--cta {
+    background: var(--cta);
+    border-color: var(--cta);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .btn--cta:hover {
+    background: #ea6c0e;
+    border-color: #ea6c0e;
+    color: #fff;
+  }
+
+  .comparison__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 36px;
+  }
+
+  @media (max-width: 900px) {
+    .comparison__grid { grid-template-columns: 1fr; }
+    .page { padding: 0 20px 60px; }
+  }
+
+  .panel {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .panel__badge {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 3px 10px;
+    border-radius: 100px;
+    margin-bottom: 16px;
+    display: inline-block;
+  }
+
+  .panel__badge--flat {
+    background: rgba(239,68,68,0.12);
+    color: var(--error);
+  }
+
+  .panel__badge--routed {
+    background: rgba(34,197,94,0.12);
+    color: var(--success);
+  }
+
+  .panel__label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--fg-muted);
+    margin-bottom: 4px;
+  }
+
+  .panel__tokens {
+    font-size: 40px;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    color: var(--fg);
+    margin-bottom: 4px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+
+  .panel__tokens span {
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--fg-muted);
+    margin-left: 4px;
+  }
+
+  .panel__cost {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--fg-muted);
+    margin-bottom: 24px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Per-agent bars */
+  .panel__bars {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .bar-row__name {
+    width: 120px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--fg-muted);
+    text-align: right;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .bar-row__track {
+    flex: 1;
+    height: 24px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .bar-row__fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 900ms var(--ease);
+    width: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 8px;
+  }
+
+  .bar-row__fill-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+    white-space: nowrap;
+  }
+
+  .panel--flat .bar-row__fill {
+    background: linear-gradient(90deg, var(--error), #b91c1c);
+  }
+
+  /* ── Savings strip ──────────────────────────────────── */
+  .savings {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  @media (max-width: 700px) {
+    .savings { grid-template-columns: 1fr; }
+  }
+
+  .savings__card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    padding: 24px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .savings__card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center bottom, var(--accent-glow), transparent 70%);
+    opacity: 0;
+    transition: opacity 400ms var(--ease);
+  }
+
+  .savings__card:hover::before { opacity: 1; }
+
+  .savings__value {
+    font-size: 40px;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    color: var(--success);
+    margin-bottom: 4px;
+    font-variant-numeric: tabular-nums;
+    position: relative;
+    z-index: 1;
+  }
+
+  .savings__label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--fg-muted);
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Animate button pulse ───────────────────────────── */
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(249,115,22,0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(249,115,22,0); }
+  }
+
+  .btn--cta { animation: pulse 2s ease-in-out infinite; }
+  .btn--cta.animated { animation: none; }
+
+  /* ── Animate entrance ───────────────────────────────── */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card { animation: fadeInUp 500ms var(--ease) both; }
+  .card:nth-child(1) { animation-delay: 0ms; }
+  .card:nth-child(2) { animation-delay: 80ms; }
+  .card:nth-child(3) { animation-delay: 130ms; }
+  .card:nth-child(4) { animation-delay: 200ms; }
+  .card:nth-child(5) { animation-delay: 270ms; }
+  .card:nth-child(6) { animation-delay: 340ms; }
+  .card:nth-child(7) { animation-delay: 410ms; }
+  .card:nth-child(8) { animation-delay: 480ms; }
+  .card:nth-child(9) { animation-delay: 550ms; }
+  .card:nth-child(10) { animation-delay: 620ms; }
+  .card:nth-child(11) { animation-delay: 690ms; }
+
+  /* Arrow fade in */
+  .arrow { animation: fadeInUp 400ms var(--ease) both; }
+  .agents__scroll > :nth-child(2) { animation-delay: 40ms; }
+  .agents__scroll > :nth-child(4) { animation-delay: 110ms; }
+  .agents__scroll > :nth-child(6) { animation-delay: 180ms; }
+  .agents__scroll > :nth-child(8) { animation-delay: 260ms; }
+  .agents__scroll > :nth-child(10) { animation-delay: 340ms; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ═══════ SECTION 1: HEADER ═══════ -->
+  <header class="header">
+    <div class="header__brand">
+      <div class="header__logo">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span class="header__title">modular-crew <span>// Context Diff</span></span>
+      </div>
+      <span class="header__team">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        dev-crew
+      </span>
+    </div>
+    <h1 class="header__view-title">Context Allocation</h1>
+    <div class="header__task">
+      <span class="header__task-label">Task</span>
+      <input class="header__task-input" type="text" value="Build two-factor authentication with TOTP" />
+    </div>
+  </header>
+
+  <!-- ═══════ SECTION 2: AGENT CARDS ═══════ -->
+  <section class="agents">
+    <div class="agents__label">Pipeline — 6 steps</div>
+    <div class="agents__scroll" id="agentScroll"></div>
+  </section>
+
+  <!-- ═══════ SECTION 3: COMPARISON ═══════ -->
+  <section class="comparison">
+    <div class="comparison__head">
+      <span class="comparison__title">Cost comparison</span>
+      <div class="comparison__controls">
+        <button class="btn btn--active" id="btnPerRun" onclick="setCostMode('run')">Per run</button>
+        <button class="btn" id="btnPer100" onclick="setCostMode('100')">Per 100 runs</button>
+        <button class="btn btn--cta" id="btnAnimate" onclick="animateAll()">
+          <span style="display:inline-flex;align-items:center;gap:5px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Animate
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <div class="comparison__grid">
+      <!-- LEFT: Flat -->
+      <div class="panel panel--flat">
+        <span class="panel__badge panel__badge--flat">Flat · CrewAI-style</span>
+        <div class="panel__label">Total context allocated</div>
+        <div class="panel__tokens" id="flatTokens">0<span>tokens</span></div>
+        <div class="panel__cost" id="flatCost">$0.000</div>
+        <div class="panel__bars" id="flatBars"></div>
+      </div>
+
+      <!-- RIGHT: Routed -->
+      <div class="panel panel--routed">
+        <span class="panel__badge panel__badge--routed">Depth-routed · modular-crew</span>
+        <div class="panel__label">Total context allocated</div>
+        <div class="panel__tokens" id="routedTokens">0<span>tokens</span></div>
+        <div class="panel__cost" id="routedCost">$0.000</div>
+        <div class="panel__bars" id="routedBars"></div>
+      </div>
+    </div>
+
+    <!-- Savings -->
+    <div class="savings">
+      <div class="savings__card">
+        <div class="savings__value" id="savPct">0%</div>
+        <div class="savings__label">fewer tokens</div>
+      </div>
+      <div class="savings__card">
+        <div class="savings__value" id="savEff">1.0x</div>
+        <div class="savings__label">more efficient</div>
+      </div>
+      <div class="savings__card">
+        <div class="savings__value" id="savCost">$0.00</div>
+        <div class="savings__label" id="savCostLabel">saved per run</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// ── Data ──────────────────────────────────────────────
+const agents = [
+  { step: 'architect',            agent: 'Architect',   model: 'sonnet', depth: 'detail',    tokens: 24000, cost: 0.102, sources: ['task'],                                ctxParts: [5,5,60,15,15] },
+  { step: 'implement.backend',    agent: 'Backend',     model: 'sonnet', depth: 'summary',   tokens: 16000, cost: 0.078, sources: ['backend_spec','contracts'],             ctxParts: [5,5,55,25,10] },
+  { step: 'implement.frontend',   agent: 'Frontend',    model: 'sonnet', depth: 'summary',   tokens: 16000, cost: 0.078, sources: ['frontend_spec','contracts'],            ctxParts: [5,5,55,25,10] },
+  { step: 'reviewer',             agent: 'Reviewer',    model: 'haiku',  depth: 'full',      tokens: 32000, cost: 0.126, sources: ['design','contracts','backend_code'],     ctxParts: [3,4,65,20,8] },
+  { step: 'revise',               agent: 'Reviser',     model: 'sonnet', depth: 'full',      tokens: 32000, cost: 0.126, sources: ['review_issues','backend_code'],          ctxParts: [3,4,60,25,8] },
+  { step: 'ship',                 agent: 'Ship',        model: 'sonnet', depth: 'headlines', tokens: 8000,  cost: 0.054, sources: ['design','review_summary'],               ctxParts: [8,8,40,30,14] },
+];
+
+const FLAT_TOKENS_PER = 32000;
+const FLAT_TOTAL = FLAT_TOKENS_PER * agents.length;
+const ROUTED_TOTAL = agents.reduce((s,a) => s + a.tokens, 0);
+const FLAT_COST = 0.756;
+const ROUTED_COST = 0.564;
+const SAVINGS_PCT = 33;
+const SAVINGS_EFF = 1.5;
+const SAVINGS_COST = 0.192;
+
+const depthLabel = { full: 'Full', detail: 'Detail', summary: 'Summary', headlines: 'Headlines' };
+const depthPct   = { full: '100%', detail: '75%', summary: '50%', headlines: '25%' };
+const depthColor = { full: '#EF4444', detail: '#F59E0B', summary: '#22C55E', headlines: '#3B82F6' };
+
+let costMultiplier = 1;
+
+// ── Build Agent Cards ─────────────────────────────────
+const scroll = document.getElementById('agentScroll');
+
+agents.forEach((a, i) => {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.dataset.depth = a.depth;
+
+  const modelClass = a.model === 'haiku' ? 'card__model--haiku' : 'card__model--sonnet';
+
+  const segs = a.ctxParts;
+  const segHTML = `
+    <div class="card__ctx-seg card__ctx-seg--system" style="flex:${segs[0]}"></div>
+    <div class="card__ctx-seg card__ctx-seg--task" style="flex:${segs[1]}"></div>
+    <div class="card__ctx-seg card__ctx-seg--context" style="flex:${segs[2]}"></div>
+    <div class="card__ctx-seg card__ctx-seg--upstream" style="flex:${segs[3]}"></div>
+    <div class="card__ctx-seg card__ctx-seg--deliverables" style="flex:${segs[4]}"></div>
+  `;
+
+  card.innerHTML = `
+    <div class="card__head">
+      <div>
+        <div class="card__step">${a.step}</div>
+        <div class="card__agent">${a.agent}</div>
+      </div>
+      <span class="card__model ${modelClass}">${a.model}</span>
+    </div>
+    <div class="card__depth">
+      <div class="card__depth-track"><div class="card__depth-fill"></div></div>
+      <div class="card__depth-label">
+        <span class="card__depth-name">${depthLabel[a.depth]}</span>
+        <span class="card__depth-pct">${depthPct[a.depth]}</span>
+      </div>
+    </div>
+    <div class="card__tokens">${(a.tokens / 1000).toFixed(0)}k<span class="card__tokens-unit">tokens</span></div>
+    <div class="card__cost">$${a.cost.toFixed(3)}</div>
+    <div class="card__ctx">
+      <div class="card__ctx-bar">${segHTML}</div>
+      <div class="card__ctx-legend">
+        <span class="card__ctx-legend-item"><span class="card__ctx-legend-dot" style="background:#2a2a2e"></span>Sys</span>
+        <span class="card__ctx-legend-item"><span class="card__ctx-legend-dot" style="background:#3a3a40"></span>Task</span>
+        <span class="card__ctx-legend-item"><span class="card__ctx-legend-dot" style="background:${depthColor[a.depth]}"></span>Ctx</span>
+        <span class="card__ctx-legend-item"><span class="card__ctx-legend-dot" style="background:#F97316"></span>Facts</span>
+        <span class="card__ctx-legend-item"><span class="card__ctx-legend-dot" style="background:#5E6AD2"></span>Out</span>
+      </div>
+    </div>
+    <div class="card__sources">
+      ${a.sources.map(s => `<span class="card__source">${s}</span>`).join('')}
+    </div>
+  `;
+
+  scroll.appendChild(card);
+
+  if (i < agents.length - 1) {
+    const arrow = document.createElement('div');
+    arrow.className = 'arrow';
+    arrow.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+    scroll.appendChild(arrow);
+  }
+});
+
+// ── Build Comparison Bars ─────────────────────────────
+function buildBars() {
+  const flatBars = document.getElementById('flatBars');
+  const routedBars = document.getElementById('routedBars');
+  flatBars.innerHTML = '';
+  routedBars.innerHTML = '';
+
+  agents.forEach(a => {
+    const fRow = document.createElement('div');
+    fRow.className = 'bar-row';
+    fRow.innerHTML = `
+      <span class="bar-row__name">${a.step}</span>
+      <div class="bar-row__track">
+        <div class="bar-row__fill bar-fill-flat" data-target="100" style="width:0%">
+          <span class="bar-row__fill-label">32k</span>
+        </div>
+      </div>
+    `;
+    flatBars.appendChild(fRow);
+
+    const rRow = document.createElement('div');
+    rRow.className = 'bar-row';
+    const pct = (a.tokens / FLAT_TOKENS_PER) * 100;
+    rRow.innerHTML = `
+      <span class="bar-row__name">${a.step}</span>
+      <div class="bar-row__track">
+        <div class="bar-row__fill bar-fill-routed" data-target="${pct}" style="width:0%; background: linear-gradient(90deg, ${depthColor[a.depth]}, ${depthColor[a.depth]}99);">
+          <span class="bar-row__fill-label">${(a.tokens/1000).toFixed(0)}k</span>
+        </div>
+      </div>
+    `;
+    routedBars.appendChild(rRow);
+  });
+}
+
+buildBars();
+
+// ── Animation Engine ──────────────────────────────────
+function animateCounter(el, start, end, duration, formatter) {
+  const t0 = performance.now();
+  function tick(now) {
+    const p = Math.min((now - t0) / duration, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    const v = start + (end - start) * ease;
+    el.innerHTML = formatter(v);
+    if (p < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function animateBars() {
+  document.querySelectorAll('.bar-fill-flat, .bar-fill-routed').forEach(bar => {
+    const target = parseFloat(bar.dataset.target);
+    setTimeout(() => { bar.style.width = target + '%'; }, 100);
+  });
+}
+
+function updateCosts() {
+  const m = costMultiplier;
+  const flatTotal = FLAT_TOTAL * m;
+  const routedTotal = ROUTED_TOTAL * m;
+  const flatCost = FLAT_COST * m;
+  const routedCost = ROUTED_COST * m;
+  const savedCost = SAVINGS_COST * m;
+
+  animateCounter(document.getElementById('flatTokens'), 0, flatTotal, 1200,
+    v => `${Math.round(v).toLocaleString()}<span>tokens</span>`);
+  animateCounter(document.getElementById('routedTokens'), 0, routedTotal, 1200,
+    v => `${Math.round(v).toLocaleString()}<span>tokens</span>`);
+  animateCounter(document.getElementById('flatCost'), 0, flatCost, 1200,
+    v => `$${v.toFixed(m > 1 ? 2 : 3)}`);
+  animateCounter(document.getElementById('routedCost'), 0, routedCost, 1200,
+    v => `$${v.toFixed(m > 1 ? 2 : 3)}`);
+
+  animateCounter(document.getElementById('savPct'), 0, SAVINGS_PCT, 1000,
+    v => `${Math.round(v)}%`);
+  animateCounter(document.getElementById('savEff'), 1, SAVINGS_EFF, 1000,
+    v => `${v.toFixed(1)}x`);
+  animateCounter(document.getElementById('savCost'), 0, savedCost, 1000,
+    v => `$${v.toFixed(2)}`);
+
+  document.getElementById('savCostLabel').textContent = m === 1 ? 'saved per run' : 'saved per 100 runs';
+}
+
+function animateAll() {
+  updateCosts();
+  animateBars();
+  document.getElementById('btnAnimate').classList.add('animated');
+}
+
+function setCostMode(mode) {
+  costMultiplier = mode === '100' ? 100 : 1;
+  document.getElementById('btnPerRun').classList.toggle('btn--active', mode === 'run');
+  document.getElementById('btnPer100').classList.toggle('btn--active', mode === '100');
+  updateCosts();
+  animateBars();
+}
+
+// ── Auto-animate on load ──────────────────────────────
+window.addEventListener('load', () => {
+  setTimeout(animateAll, 600);
+});
+</script>
+</body>
+</html>
