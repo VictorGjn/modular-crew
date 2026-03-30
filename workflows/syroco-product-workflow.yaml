@@ -1,0 +1,394 @@
+# yaml-language-server: $schema=../schema/team.schema.json
+
+# ─────────────────────────────────────────────────────────────────────
+# product-workflow.yaml — Syroco Product Workflow E2E
+#
+# The full product pipeline from signal collection to post-ship monitoring.
+# 15 agents across 6 stages, orchestrated as a DAG with fact bus dependencies.
+#
+# ┌─────────── COLLECT ──────────────────────────────────────────────┐
+# │  signal-scanner ───┐                                            │
+# │                    ├──► signal-aggregator ──► hubspot-enrichment │
+# │  granola-extractor ┘                                            │
+# └──────────────────────────────────────────────────────────────────┘
+#         │ aggregated_themes + client_weights
+#         ▼
+# ┌─────────── PRIORISER ────────────────────────────────────────────┐
+# │  opportunity-creator (weekly suggestions from theme scores)      │
+# └──────────────────────────────────────────────────────────────────┘
+#         │ opportunity_briefs
+#         ▼
+# ┌─────────── DISCOVERY ────────────────────────────────────────────┐
+# │  discovery-enrichment (6 parallel research tracks)               │
+# └──────────────────────────────────────────────────────────────────┘
+#         │ discovery_brief
+#         ▼
+# ┌─────────── SOLUTION ─────────────────────────────────────────────┐
+# │  prd-generator ──► test-plan-generator                           │
+# └──────────────────────────────────────────────────────────────────┘
+#         │ prd_document + test_plan
+#         ▼
+# ┌─────────── DELIVERY ─────────────────────────────────────────────┐
+# │  ticket-creator ──► dev-progress-monitor (daily loop)            │
+# └──────────────────────────────────────────────────────────────────┘
+#         │ linear_issues + progress_report
+#         ▼
+# ┌─────────── POST-SHIP ───────────────────────────────────────────┐
+# │  release-monitor ──► release-note-generator                      │
+# │                  └──► doc-auto-update                             │
+# │  success-metrics-tracker                                         │
+# │  dashboard-data-sync                                             │
+# └──────────────────────────────────────────────────────────────────┘
+#
+# ─────────────────────────────────────────────────────────────────────
+
+$schema: "../schema/team.schema.json"
+version: 1
+name: syroco-product-workflow
+description: >
+  End-to-end product workflow for Syroco. 15 agents across 6 stages:
+  Collect (4) → Prioriser (1) → Discovery (1) → Solution (2) →
+  Delivery (2) → Post-Ship (5). Connects Gmail, Notion, Granola,
+  Linear, GitHub, Slack, and Metabase.
+
+defaults:
+  provider: anthropic
+  model: claude-sonnet-4-20250514
+  maxTurns: 10
+  tokenBudget: 16000
+  maxOutputTokens: 4096
+
+budget:
+  maxCost: 15.00
+  maxTokens: 1500000
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  STAGE 1: COLLECT — Capture signals from all sources
+# ═══════════════════════════════════════════════════════════════════
+
+flow:
+
+  # ── 1. Parallel signal collection ────────────────────────────────
+  collect:
+    parallel:
+      signal-scanner:
+        agent:
+          system: |
+            You are a product signal extraction agent for Syroco.
+            Scan Gmail "OnWatch" label (Label_4137808518805401777) for emails from vessel captains.
+            Filter out: onwatch@syro.co, noreply, EASY NOON subjects.
+            Map sender domains to clients (KCC=@vsl.klaveness.com, Odfjell=@odfjell.com, etc).
+            Extract feature requests, complaints, bugs. Categorize into 15 themes.
+            Dedup against Notion Signals DB (2fb15f7a-f269-81ef-b9d1-e72380767ebf).
+            Create new signals or reinforce existing ones with comments.
+            Properties: Name, Client, Product, Category, Priority, Status=Submitted,
+            Source Type=User_Feedback, Details, User Quote, Vessel, Stakeholder, Submitted At.
+          tools: [gmail_search, gmail_read, notion_query, notion_create_page, notion_add_comment]
+        publishes: [new_signals]
+        context:
+          depth: full
+
+      granola-extractor:
+        agent:
+          system: |
+            You are a meeting signal extraction agent for Syroco.
+            Scan Granola meetings from last 24h (MCP: https://mcp.granola.ai/mcp).
+            Include meetings with external participants (non-@syro.co) or client keyword matches.
+            Extract feature requests, pain points, competitive mentions from transcripts.
+            Infer client from participant domains. Categorize into 15 themes.
+            Dedup against Notion Signals DB (2fb15f7a-f269-81ef-b9d1-e72380767ebf).
+            Same Notion properties as signal-scanner.
+          tools: [granola_search_meetings, granola_get_transcript, notion_query, notion_create_page]
+        publishes: [meeting_signals]
+        context:
+          depth: full
+
+  # ── 2. Signal Aggregator ─────────────────────────────────────────
+  signal-aggregator:
+    after: [collect]
+    agent:
+      system: |
+        You are a product signal aggregation agent.
+        Query ALL active signals from Notion DB (2fb15f7a-f269-81ef-b9d1-e72380767ebf, Status != Parked).
+        Group by Category, count per theme, group by Client within each theme.
+        Score: theme_score = signal_count x unique_client_count x priority_weight (HIGH=3, MED=2, LOW=1).
+        Detect emerging themes (count increased since last run).
+        Update 15 Signal Theme pages under index (33015f7a-f269-8133-9657-c957e1ec0b3b).
+        Post digest to Slack #signals (C0AP89M4CJH).
+      tools: [notion_query, notion_update_page, slack_post_message]
+    requires: [new_signals, meeting_signals]
+    publishes: [aggregated_themes, digest_posted]
+    context:
+      depth: detail
+      sources: [new_signals, meeting_signals]
+
+  # ── 3. HubSpot Client Priority (STUBBED) ─────────────────────────
+  hubspot-enrichment:
+    after: [signal-aggregator]
+    agent:
+      model: claude-haiku-4-20250514
+      system: |
+        STUBBED: HubSpot API not available.
+        Publish static client weights from deal pipeline:
+        GEOGAS:266k, Odfjell:210k, UHL:162k, LDC:142k, Knutsen:101k,
+        Marfret:97k, Nirint:77k, KCC:36k. Source: static_pipeline_data.
+      tools: []
+    requires: [aggregated_themes]
+    publishes: [client_weights]
+    context:
+      depth: mention
+    timeout: 30
+
+
+  # ═══════════════════════════════════════════════════════════════════
+  #  STAGE 2: PRIORISER — Transform signals into scored opportunities
+  # ═══════════════════════════════════════════════════════════════════
+
+  # ── 4. Opportunity Creator ───────────────────────────────────────
+  opportunity-creator:
+    after: [hubspot-enrichment]
+    agent:
+      system: |
+        You are an opportunity identification agent for Syroco.
+        Identify themes with 3+ unlinked signals (Opportunities relation empty).
+        Score each: opportunity_score = weighted_signals x (1 + kr_alignment) x client_diversity_bonus.
+        client_diversity_bonus: 1 client=1.0, 2-3=1.5, 4+=2.0.
+        Check KR alignment against Key Results DB (2fb15f7a-f269-81ad-a9f4-f31790c9e832).
+        Check existing Opportunities DB (2fb15f7a-f269-8117-aa44-de4243c71ce6) to avoid duplicates.
+        For top 3 candidates, generate: name, problem statement (from signal quotes),
+        evidence (signal list), impact estimate, suggested KR link.
+        Post suggestions to Slack. DO NOT create opportunities without human confirmation.
+      tools: [notion_query, slack_post_message]
+    requires: [aggregated_themes, client_weights]
+    publishes: [opportunity_suggestions]
+    approval: true
+    context:
+      depth: detail
+      sources: [aggregated_themes, client_weights]
+
+
+  # ═══════════════════════════════════════════════════════════════════
+  #  STAGE 3: DISCOVERY — Deep research on validated opportunities
+  # ═══════════════════════════════════════════════════════════════════
+
+  # ── 5. Discovery Enrichment (6 parallel research tracks) ─────────
+  discovery-enrichment:
+    after: [opportunity-creator]
+    agent:
+      tokenBudget: 32000
+      system: |
+        You are a discovery research agent for Syroco.
+        For a given Opportunity, run 6 parallel research tracks:
+        1. Signal deep-dive: query Signals DB for all matching theme signals, extract quotes + client breakdown
+        2. Client context: build profiles (deal ARR, vessels, contacts) from Notion + client_weights
+        3. Competitive analysis: web search for "[theme] maritime software StormGeo DTN"
+        4. Industry analogies: how aviation/logistics solve similar problems
+        5. Granola meeting context: search transcripts for theme keywords, extract decisions
+        6. Email context: search Gmail for internal discussions on theme (last 90 days, exclude OnWatch)
+        Synthesize into a Discovery Brief. Save to Notion Opportunity page body.
+        Also save to documents/01 - Discovery/{Name}/discovery-brief.md.
+      tools: [notion_query, notion_update_page, exa_search, granola_search_meetings, gmail_search, web_search]
+    requires: [opportunity_suggestions]
+    publishes: [discovery_brief]
+    context:
+      depth: full
+      sources: [opportunity_suggestions]
+    timeout: 300
+
+
+  # ═══════════════════════════════════════════════════════════════════
+  #  STAGE 4: SOLUTION — PRD + Test Plan from discovery brief
+  # ═══════════════════════════════════════════════════════════════════
+
+  # ── 6. PRD Generator ─────────────────────────────────────────────
+  prd-generator:
+    after: [discovery-enrichment]
+    agent:
+      tokenBudget: 32000
+      system: |
+        You are a PRD writing agent for Syroco.
+        Transform a Discovery Brief + focus brief into a comprehensive PRD.
+        Gather context from: product docs (LIVE.md, FLEET.md, REPORTS.md),
+        architecture docs, Granola meeting decisions, codebase structure.
+        Sections: Problem Statement, Context & Prior Decisions, Solution Overview,
+        System Architecture, Backend/Frontend Integration, API Contracts, Config Parameters,
+        Acceptance Criteria (numbered, MoSCoW), Technical Risks, Implementation Phases,
+        Test Plan (Given/When/Then from ACs), Success Metrics (with targets + measurement).
+        Save to documents/03 - Solutions/YYYY-MM-DD_PRD_Feature_Name.md.
+      tools: [file_read, web_search, granola_search_meetings, notion_query]
+    requires: [discovery_brief]
+    publishes: [prd_document, acceptance_criteria]
+    approval: true
+    context:
+      depth: detail
+      sources: [discovery_brief]
+
+  # ── 7. Test Plan Generator ───────────────────────────────────────
+  test-plan-generator:
+    after: [prd-generator]
+    agent:
+      system: |
+        You are a test plan generator for Syroco.
+        Read the PRD's Acceptance Criteria section.
+        For each MUST AC: generate Given/When/Then test scenario.
+        For each API endpoint: generate happy path + error test case.
+        Identify regression risks by cross-referencing LIVE.md, FLEET.md, REPORTS.md.
+        Generate Playwright skeleton (TypeScript) with test.describe blocks.
+        Think about edge cases: null inputs, max values, offline vessel scenarios, permissions.
+        Append Test Plan to the PRD file. Save Playwright file alongside.
+      tools: [file_read, file_write]
+    requires: [prd_document, acceptance_criteria]
+    publishes: [test_plan]
+    context:
+      depth: summary
+      sources: [acceptance_criteria]
+
+
+  # ═══════════════════════════════════════════════════════════════════
+  #  STAGE 5: DELIVERY — Tickets + progress monitoring
+  # ═══════════════════════════════════════════════════════════════════
+
+  # ── 8. Ticket Creator (PRD → Linear) ─────────────────────────────
+  ticket-creator:
+    after: [test-plan-generator]
+    agent:
+      system: |
+        You are a ticket creation agent for Syroco.
+        Linear team: Syroco (SYR, id: ed1b06c7-1c99-44ac-b41d-a0a30de0ddf7).
+        From the PRD, create: Project → Epic → Stories (per phase) → Tasks (per AC).
+        Group ACs by implementation phase. Set AC checklists on each issue.
+        Create dependency links between blocking issues.
+        Present decomposition plan to human BEFORE creating issues.
+        After creation, add comment on Notion Opportunity with Linear issue URLs.
+        Post summary to Slack #engineering-updates.
+      tools: [linear_create_project, linear_create_issue, linear_create_relation, notion_add_comment, slack_post_message]
+    requires: [prd_document, acceptance_criteria, test_plan]
+    publishes: [linear_issues]
+    approval: true
+    context:
+      depth: summary
+      sources: [acceptance_criteria]
+
+  # ── 9. Dev Progress Monitor (daily loop) ─────────────────────────
+  dev-progress-monitor:
+    after: [ticket-creator]
+    agent:
+      model: claude-haiku-4-20250514
+      system: |
+        You are a development progress monitor for Syroco.
+        Linear team SYR (ed1b06c7-1c99-44ac-b41d-a0a30de0ddf7).
+        Fetch issues with state type in [started, unstarted].
+        Detect blockers: In Progress issues with no update in 3+ days.
+        Calculate project progress: completed/total per project.
+        Fetch GitHub PRs merged in last 24h across: efficientship-live, fleet, efficientship-backend.
+        Cross-reference PR titles with Linear issue IDs (SYR-XXX pattern).
+        Post daily brief to Slack #engineering-updates.
+        Format: PRs merged, project progress bars, blockers with assignees.
+      tools: [linear_query_issues, github_list_prs, slack_post_message]
+    requires: [linear_issues]
+    publishes: [progress_report]
+    context:
+      depth: headlines
+      sources: [linear_issues]
+
+
+  # ═══════════════════════════════════════════════════════════════════
+  #  STAGE 6: POST-SHIP — Monitor, document, report, sync dashboard
+  # ═══════════════════════════════════════════════════════════════════
+
+  # ── 10. Release Monitor ──────────────────────────────────────────
+  release-monitor:
+    agent:
+      model: claude-haiku-4-20250514
+      system: |
+        You are a release monitoring agent for Syroco.
+        Check GitHub releases for: syrocolab/efficientship-live, syrocolab/fleet,
+        syrocolab/efficientship-backend. Compare with cached versions.
+        Fetch commits since last release with file-level diffs.
+        Cluster changes by domain. Assign depth: Full (new features),
+        Detail (fixes), Summary (infra), Mention (chore).
+        Update product docs (LIVE.md, FLEET.md, REPORTS.md) with depth-aware edits.
+        Update version cache.
+      tools: [github_get_releases, github_get_commits, file_read, file_write]
+    publishes: [release_detected, version_cache]
+    context:
+      depth: summary
+
+  # ── 11. Release Note Generator ──────────────────────────────────
+  release-note-generator:
+    after: [release-monitor]
+    agent:
+      system: |
+        You are a release note writer for Syroco.
+        From GitHub PRs merged since last release + linked PRDs:
+        1. Summarize changes in user-friendly language (no jargon)
+        2. Group: New Features, Improvements, Bug Fixes
+        3. Generate HTML email for clients (save as Gmail draft)
+        4. Generate Slack message for #engineering-updates
+        5. Check if product docs need updates (suggest, don't auto-edit)
+        Frame as user benefits: "Hurricane DTO wind radii" → "Improved hurricane tracking".
+      tools: [github_list_prs, file_read, gmail_create_draft, slack_post_message]
+    requires: [release_detected]
+    publishes: [release_notes]
+    approval: true
+    context:
+      depth: detail
+      sources: [release_detected]
+
+  # ── 12. Doc Auto-Update (part of release monitor) ────────────────
+  doc-auto-update:
+    after: [release-monitor]
+    agent:
+      model: claude-haiku-4-20250514
+      system: |
+        You are a documentation update agent for Syroco.
+        Read the release cluster analysis from release-monitor.
+        For Full-depth clusters: add feature descriptions, new module docs.
+        For Detail-depth: add changelog entries, update "Current Initiatives".
+        For Summary-depth: only update version numbers and dates.
+        Target files: LIVE.md, FLEET.md, REPORTS.md, OVERVIEW.md.
+        Apply surgical edits, don't rewrite entire files.
+      tools: [file_read, file_write]
+    requires: [release_detected, version_cache]
+    publishes: [docs_updated]
+    context:
+      depth: summary
+      sources: [release_detected]
+
+  # ── 13. Success Metrics Tracker (STUB) ───────────────────────────
+  success-metrics-tracker:
+    agent:
+      model: claude-haiku-4-20250514
+      system: |
+        PARTIALLY STUBBED: Mixpanel not connected.
+        Scan shipped PRDs in documents/03 - Solutions/ for Success Metrics tables.
+        For Metabase metrics (available):
+          SCR (question 44), Fuel Savings (51), Time Savings (53),
+          Route Matching (60), NR 24h (39) at http://192.168.10.23:3000.
+        Compare current values with PRD targets.
+        Post health report to Slack. Update dashboard JSON kpis section.
+      tools: [file_read, metabase_query, slack_post_message]
+    publishes: [metrics_report]
+    context:
+      depth: summary
+
+  # ── 14. Dashboard Data Sync ──────────────────────────────────────
+  dashboard-data-sync:
+    agent:
+      system: |
+        You are the dashboard synchronization agent for Syroco.
+        Read from 5 Notion databases:
+        - Objectives (2fb15f7a-f269-81c4-a617-da42c3767bca)
+        - Key Results (2fb15f7a-f269-81ad-a9f4-f31790c9e832)
+        - Initiatives (2fb15f7a-f269-8136-8054-ffe92d1a7d85) [may be NOT_SHARED]
+        - Signals (2fb15f7a-f269-81ef-b9d1-e72380767ebf) [counts only]
+        - Deliveries (2fb15f7a-f269-81b4-abc6-d3807d4ad91d)
+        Generate roadmap-data.json matching the HTML dashboard structure:
+        { hero: {}, objectives: [], initiatives: {}, deals: {}, kpis: {} }
+        Push to syrocolab/syroco-product-ops repo via GitHub API.
+        If a DB is inaccessible, use cached data and note "stale" in commit message.
+      tools: [notion_query, github_push_file]
+    publishes: [dashboard_synced]
+    context:
+      depth: detail
