@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MODULAR crew — Web Editor</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   MODULAR CREW — Design System (OKLCH)
+   Matching modular-patchbay exactly
+   ═══════════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* ── Shared accent & semantic ── */
+  --accent: oklch(0.65 0.25 30);
+  --accent-hover: oklch(0.58 0.22 30);
+  --accent-glow: oklch(0.65 0.25 30 / 0.25);
+  --success: oklch(0.85 0.28 155);
+  --success-bg: oklch(0.85 0.28 155 / 0.07);
+  --error: oklch(0.60 0.25 20);
+  --error-bg: oklch(0.60 0.25 20 / 0.08);
+  --warning: oklch(0.78 0.18 80);
+  --warning-bg: oklch(0.78 0.18 80 / 0.08);
+  --info: oklch(0.60 0.12 245);
+  --info-bg: oklch(0.60 0.12 245 / 0.08);
+  /* Semantic domains */
+  --knowledge: oklch(0.60 0.12 245);
+  --discovery: oklch(0.72 0.19 155);
+  --intel: oklch(0.68 0.16 60);
+  --agents: oklch(0.55 0.18 310);
+  /* ── Sizing ── */
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+  --topbar-h: 48px;
+  --editor-w: 340px;
+  --bottom-collapsed: 38px;
+  --bottom-expanded: 260px;
+  /* ── Transitions ── */
+  --t-fast: 120ms ease;
+  --t-base: 150ms ease;
+  --t-slide: 250ms cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ── Dark Theme (Default) ── */
+[data-theme="dark"] {
+  --bg: oklch(0.15 0.005 280);
+  --surface: oklch(0.20 0.005 280 / 0.9);
+  --surface-opaque: oklch(0.20 0.005 280);
+  --surface-elevated: oklch(0.23 0.005 280);
+  --surface-hover: oklch(0.21 0.005 280);
+  --border: oklch(0.26 0.005 280);
+  --border-subtle: oklch(0.22 0.005 280);
+  --text-primary: oklch(0.95 0 0);
+  --text-secondary: oklch(0.60 0 0);
+  --text-muted: oklch(0.45 0 0);
+  --input-bg: oklch(0.16 0.005 280);
+  --badge-bg: oklch(0.23 0.005 280);
+  --dot-grid: oklch(0.22 0.005 280);
+  --scrollbar-track: oklch(0.18 0.005 280);
+  --scrollbar-thumb: oklch(0.30 0.005 280);
+  --shadow-card: 0 2px 8px oklch(0 0 0 / 0.3);
+  --overlay: oklch(0 0 0 / 0.4);
+  color-scheme: dark;
+}
+
+/* ── Light Theme ── */
+[data-theme="light"] {
+  --bg: oklch(0.95 0.005 260);
+  --surface: oklch(1.0 0 0 / 0.95);
+  --surface-opaque: oklch(1.0 0 0);
+  --surface-elevated: oklch(0.94 0.005 260);
+  --surface-hover: oklch(0.97 0.005 260);
+  --border: oklch(0.83 0.005 260);
+  --border-subtle: oklch(0.88 0.005 260);
+  --text-primary: oklch(0.18 0.01 280);
+  --text-secondary: oklch(0.35 0.01 280);
+  --text-muted: oklch(0.45 0.01 280);
+  --input-bg: oklch(0.97 0.005 260);
+  --badge-bg: oklch(0.91 0.005 260);
+  --dot-grid: oklch(0.85 0.005 260);
+  --scrollbar-track: oklch(0.93 0.005 260);
+  --scrollbar-thumb: oklch(0.78 0.005 260);
+  --shadow-card: 0 2px 8px oklch(0 0 0 / 0.08);
+  --overlay: oklch(0 0 0 / 0.18);
+  color-scheme: light;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   BASE
+   ═══════════════════════════════════════════════════════════════════ */
+html {
+  font-family: 'Geist Sans', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+body { overflow: hidden; height: 100dvh; }
+
+/* Smooth theme transitions on ALL elements */
+html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(text) {
+  transition-property: background-color, color, border-color, box-shadow, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* Scrollbar: 6px, themed */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Focus-visible: 2px accent, 2px offset */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Screen-reader only */
+.sr-only { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   COMPONENT: Buttons
+   UPPERCASE, Geist Mono, font-semibold, tracking-wide, 28-32px h
+   ═══════════════════════════════════════════════════════════════════ */
+.btn {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  white-space: nowrap;
+  user-select: none;
+  min-width: 44px;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast), box-shadow var(--t-fast);
+}
+.btn svg { width: 14px; height: 14px; flex-shrink: 0; pointer-events: none; }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-secondary { background: var(--surface-elevated); color: var(--text-secondary); border-color: var(--border); }
+.btn-secondary:hover { background: var(--surface-hover); color: var(--text-primary); border-color: var(--text-muted); }
+.btn-ghost { background: transparent; color: var(--text-secondary); }
+.btn-ghost:hover { background: var(--surface-elevated); color: var(--text-primary); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   COMPONENT: Badges — UPPERCASE, Geist Mono, pill, 8-9px
+   ═══════════════════════════════════════════════════════════════════ */
+.badge {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: var(--radius-full);
+  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  user-select: none;
+  line-height: 1.4;
+}
+.badge-neutral { background: var(--badge-bg); color: var(--text-secondary); }
+.badge-success { background: var(--success-bg); color: var(--success); }
+.badge-warning { background: var(--warning-bg); color: var(--warning); }
+.badge-error { background: var(--error-bg); color: var(--error); }
+.badge-info { background: var(--info-bg); color: var(--info); }
+.badge-accent { background: oklch(0.65 0.25 30 / 0.12); color: var(--accent); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   COMPONENT: Chip (fact pill)
+   ═══════════════════════════════════════════════════════════════════ */
+.chip {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+  background: var(--badge-bg);
+  color: var(--text-secondary);
+  border-radius: var(--radius-full);
+  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: default;
+  line-height: 1.4;
+}
+.chip-sm { font-size: 8px; padding: 1px 6px; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   COMPONENT: Inputs, Textareas, Selects
+   ═══════════════════════════════════════════════════════════════════ */
+.input, .textarea, .select {
+  font-family: 'Geist Sans', sans-serif;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  width: 100%;
+  outline: none;
+  transition: border-color var(--t-fast);
+}
+.input:focus, .textarea:focus, .select:focus { border-color: var(--accent); }
+.textarea { resize: vertical; min-height: 72px; line-height: 1.5; font-family: 'Geist Mono', monospace; font-size: 11px; }
+.select {
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+.label {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  display: block;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   LAYOUT
+   ═══════════════════════════════════════════════════════════════════ */
+.app { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+
+/* ── Top Bar ── 48px, fixed */
+.topbar {
+  height: var(--topbar-h);
+  min-height: var(--topbar-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  z-index: 50;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.topbar-left { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.topbar-center { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
+.topbar-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+.wordmark {
+  font-family: 'Geist Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  user-select: none;
+}
+.crew-badge {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  background: oklch(0.65 0.25 30 / 0.10);
+  border-radius: var(--radius-full);
+  padding: 2px 8px;
+}
+
+.team-name-input {
+  font-family: 'Geist Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 3px 8px;
+  text-align: center;
+  outline: none;
+  cursor: text;
+  min-width: 80px;
+  transition: border-color var(--t-fast);
+}
+.team-name-input:hover { border-color: var(--border-subtle); }
+.team-name-input:focus { border-color: var(--accent); }
+
+.team-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.icon-btn {
+  width: 32px; height: 32px;
+  border-radius: var(--radius);
+  background: transparent; border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background var(--t-fast), color var(--t-fast);
+  flex-shrink: 0;
+  /* 44px touch target via padding */
+  padding: 6px;
+  min-width: 44px; min-height: 44px;
+}
+.icon-btn:hover { background: var(--surface-elevated); color: var(--text-primary); }
+.icon-btn svg { width: 16px; height: 16px; }
+
+.topbar-sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+
+/* ── Main Area ── */
+.main { flex: 1; display: flex; overflow: hidden; position: relative; }
+
+/* ── Canvas ── */
+.canvas-wrap { flex: 1; position: relative; overflow: hidden; }
+.canvas {
+  width: 100%; height: 100%;
+  position: relative;
+  background-color: var(--bg);
+  background-image: radial-gradient(circle, var(--dot-grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.canvas-edges { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.canvas-nodes { position: absolute; inset: 0; z-index: 2; }
+
+/* ── Nodes ── */
+.node {
+  position: absolute;
+  width: 210px;
+  cursor: pointer;
+  z-index: 10;
+  transition: transform 80ms ease;
+}
+.node:hover { transform: translateY(-1px); }
+.node:hover .node-card { border-color: var(--text-muted); }
+
+.node-card {
+  background: var(--surface-opaque);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  box-shadow: var(--shadow-card);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.node-card.selected {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-card), 0 0 0 1px var(--accent), 0 0 20px var(--accent-glow);
+}
+
+.node-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.node-name { font-weight: 600; font-size: 13px; color: var(--text-primary); }
+.node-meta { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+.node-publishes { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* ── Editor Panel ── */
+.editor-overlay {
+  position: fixed; inset: 0;
+  background: var(--overlay);
+  z-index: 90;
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--t-slide);
+}
+.editor-overlay.open { opacity: 1; pointer-events: auto; }
+
+.editor-panel {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: var(--editor-w);
+  max-width: 90vw;
+  background: var(--surface-opaque);
+  border-left: 1px solid var(--border);
+  z-index: 100;
+  display: flex; flex-direction: column;
+  transform: translateX(100%);
+  transition: transform var(--t-slide);
+  box-shadow: -4px 0 24px oklch(0 0 0 / 0.15);
+}
+.editor-panel.open { transform: translateX(0); }
+
+.editor-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.editor-header h2 { font-size: 14px; font-weight: 600; }
+
+.editor-body { flex: 1; overflow-y: auto; }
+
+.editor-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  display: flex; gap: 8px; justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+/* ── Sections (collapsible) ── */
+.section { border-bottom: 1px solid var(--border-subtle); }
+.section:last-child { border-bottom: none; }
+
+.section-toggle {
+  width: 100%;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px;
+  background: transparent; border: none;
+  color: var(--text-secondary);
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+  min-height: 44px;
+}
+.section-toggle:hover { background: var(--surface-hover); color: var(--text-primary); }
+.section-toggle svg {
+  width: 12px; height: 12px;
+  transition: transform var(--t-fast);
+  flex-shrink: 0;
+}
+.section-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+.section-content { padding: 0 16px 14px; display: none; }
+.section-content.open { display: block; }
+.section-row { margin-bottom: 10px; }
+.section-row:last-child { margin-bottom: 0; }
+.chips-wrap { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* ── Bottom Panel ── */
+.bottom-panel {
+  background: var(--surface-opaque);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex; flex-direction: column;
+  height: var(--bottom-collapsed);
+  transition: height var(--t-slide);
+  z-index: 30;
+}
+.bottom-panel.expanded { height: var(--bottom-expanded); }
+
+.bottom-tabs {
+  display: flex; align-items: center;
+  height: 38px; min-height: 38px;
+  padding: 0 16px;
+  gap: 2px;
+  user-select: none;
+}
+.bottom-tab {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  background: transparent; border: none;
+  transition: color var(--t-fast), background var(--t-fast);
+  min-height: 28px;
+  display: flex; align-items: center;
+}
+.bottom-tab:hover { color: var(--text-secondary); background: var(--surface-hover); }
+.bottom-tab.active { color: var(--text-primary); background: var(--surface-elevated); }
+
+.bottom-expand {
+  margin-left: auto;
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none;
+  color: var(--text-muted); cursor: pointer;
+  border-radius: var(--radius);
+  transition: background var(--t-fast), color var(--t-fast);
+  min-width: 44px; min-height: 44px;
+  padding: 8px;
+}
+.bottom-expand:hover { background: var(--surface-elevated); color: var(--text-primary); }
+.bottom-expand svg { width: 14px; height: 14px; transition: transform var(--t-fast); }
+.bottom-panel.expanded .bottom-expand svg { transform: rotate(180deg); }
+
+.bottom-body { flex: 1; overflow: auto; padding: 12px 16px; display: none; }
+.bottom-panel.expanded .bottom-body.active { display: block; }
+
+/* ── Tables ── */
+.data-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.data-table th {
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-muted);
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.data-table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table .total-row td {
+  font-weight: 600;
+  color: var(--text-primary);
+  border-top: 1px solid var(--border);
+  border-bottom: none;
+}
+.data-table .mono { font-family: 'Geist Mono', monospace; }
+.data-table .strong { color: var(--text-primary); }
+
+/* Depth bars */
+.depth-bar-cell { min-width: 110px; }
+.depth-bar-wrap { display: flex; align-items: center; gap: 6px; }
+.depth-bar { height: 4px; border-radius: 2px; }
+.depth-full { background: var(--error); }
+.depth-detail { background: var(--warning); }
+.depth-summary { background: var(--discovery); }
+.depth-headlines { background: var(--info); }
+
+/* Savings */
+.savings-row {
+  margin-top: 10px;
+  display: flex; align-items: center; gap: 12px;
+  font-size: 11px;
+}
+.savings-num {
+  font-family: 'Geist Mono', monospace;
+  font-weight: 600;
+  color: var(--success);
+  font-size: 13px;
+}
+
+/* Status dots */
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+.status-dot.published { background: var(--success); }
+.status-dot.pending { background: var(--warning); }
+.status-dot.consumed { background: var(--info); }
+
+/* ── SVG Edges ── */
+.edge-line { fill: none; stroke-width: 1.5; }
+.edge-solid { stroke: var(--border); }
+.edge-dashed { stroke: var(--text-muted); stroke-dasharray: 6 4; }
+.edge-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 9px;
+  fill: var(--text-muted);
+  text-anchor: middle;
+}
+.edge-arrow { fill: var(--border); }
+.edge-dashed-arrow { fill: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ════════════════════════ TOP BAR ════════════════════════ -->
+  <header class="topbar" role="banner">
+    <div class="topbar-left">
+      <span class="wordmark">MODULAR</span>
+      <span class="crew-badge">crew</span>
+      <button class="icon-btn" id="themeToggle" aria-label="Toggle color theme" title="Toggle theme">
+        <svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <svg id="iconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </div>
+
+    <div class="topbar-center">
+      <input class="team-name-input" id="teamName" value="dev-crew" spellcheck="false" aria-label="Team name">
+      <span class="team-desc" title="Full-stack feature delivery team with context-aware review loops">Full-stack feature delivery team</span>
+    </div>
+
+    <div class="topbar-right">
+      <span class="badge badge-neutral">5 STEPS</span>
+      <span class="badge badge-neutral">6 AGENTS</span>
+      <span class="badge badge-accent">$5.00 BUDGET</span>
+      <div class="topbar-sep"></div>
+      <button class="btn btn-ghost" aria-label="Validate crew definition">VALIDATE</button>
+      <button class="btn btn-ghost" aria-label="Preview execution plan">PLAN</button>
+      <button class="btn btn-secondary" aria-label="Show context diff">DIFF</button>
+      <button class="btn btn-primary" aria-label="Run the crew">
+        <svg viewBox="0 0 24 24" fill="none"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/></svg>
+        RUN
+      </button>
+    </div>
+  </header>
+
+  <!-- ════════════════════════ MAIN ════════════════════════ -->
+  <div class="main">
+    <div class="canvas-wrap">
+      <div class="canvas" id="canvas">
+        <svg class="canvas-edges" id="edgesSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div class="canvas-nodes" id="nodesContainer"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════ EDITOR ════════════════════════ -->
+  <div class="editor-overlay" id="editorOverlay"></div>
+  <aside class="editor-panel" id="editorPanel" role="dialog" aria-label="Step editor" aria-modal="true">
+    <div class="editor-header">
+      <h2 id="editorTitle">architect</h2>
+      <button class="icon-btn" id="editorClose" aria-label="Close editor">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="editor-body" id="editorBody"></div>
+    <div class="editor-footer">
+      <button class="btn btn-ghost" id="editorCancel">CANCEL</button>
+      <button class="btn btn-primary" id="editorSave">SAVE</button>
+    </div>
+  </aside>
+
+  <!-- ════════════════════════ BOTTOM PANEL ════════════════════════ -->
+  <div class="bottom-panel" id="bottomPanel">
+    <div class="bottom-tabs">
+      <button class="bottom-tab active" data-tab="context" aria-label="Context diff tab">CONTEXT DIFF</button>
+      <button class="bottom-tab" data-tab="facts" aria-label="Fact bus tab">FACT BUS</button>
+      <button class="bottom-expand" id="bottomExpand" aria-label="Expand or collapse panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+      </button>
+    </div>
+    <div class="bottom-body active" id="contextDiffBody" data-tab="context"></div>
+    <div class="bottom-body" id="factBusBody" data-tab="facts"></div>
+  </div>
+
+</div>
+
+<script type="module">
+/* ═══════════════════════════════════════════════════════════════════
+   DATA MODEL
+   ═══════════════════════════════════════════════════════════════════ */
+const STEPS = {
+  architect: {
+    id: 'architect', label: 'architect',
+    model: 'claude-sonnet-4-20250514', depth: 'detail',
+    publishes: ['design', 'backend_spec', 'frontend_spec', 'contracts'],
+    requires: [], factCount: 4,
+    systemPrompt: 'You analyze feature specs and produce:\n1. A technical design with component boundaries\n2. API contracts (endpoints, DTOs, error codes)\n3. A dependency graph of implementation tasks',
+    maxTurns: 15, sources: ['spec', 'design-brief'], tokenBudget: 24000,
+    x: 80, y: 140
+  },
+  'implement.backend': {
+    id: 'implement.backend', label: 'implement.backend',
+    model: 'claude-sonnet-4-20250514', depth: 'summary',
+    publishes: ['backend_code', 'backend_tests'],
+    requires: ['backend_spec', 'contracts'], factCount: 2,
+    systemPrompt: "You implement backend services based on the architect's design.\nFollow the API contracts exactly. Write tests for each endpoint.",
+    maxTurns: 15, sources: ['architect.output', 'repo://backend-api'], tokenBudget: 16000,
+    x: 370, y: 55
+  },
+  'implement.frontend': {
+    id: 'implement.frontend', label: 'implement.frontend',
+    model: 'claude-sonnet-4-20250514', depth: 'summary',
+    publishes: ['frontend_code', 'frontend_tests'],
+    requires: ['frontend_spec', 'contracts'], factCount: 2,
+    systemPrompt: "You implement frontend components that consume the backend API.\nFollow the API contracts for data shapes and error handling.",
+    maxTurns: 15, sources: ['architect.output', 'repo://frontend-app'], tokenBudget: 16000,
+    x: 370, y: 235
+  },
+  reviewer: {
+    id: 'reviewer', label: 'reviewer',
+    model: 'claude-haiku-4-20250514', depth: 'full',
+    publishes: ['review_verdict', 'review_issues'],
+    requires: ['design', 'contracts', 'backend_code', 'frontend_code'], factCount: 6,
+    systemPrompt: 'You review the output of backend and frontend agents.\nCheck for: contract compliance, error handling, test coverage.',
+    maxTurns: 10, sources: ['backend.output', 'frontend.output', 'architect.output'], tokenBudget: 32000,
+    x: 660, y: 140
+  },
+  revise: {
+    id: 'revise', label: 'revise',
+    model: 'claude-sonnet-4-20250514', depth: 'full',
+    publishes: ['backend_code', 'frontend_code'],
+    requires: ['review_issues'], factCount: 2,
+    systemPrompt: 'You revise the code based on review feedback.\nAddress all issues raised by the reviewer.',
+    maxTurns: 15, sources: ['reviewer.feedback'], tokenBudget: 32000,
+    when: { fact: 'review_verdict', op: 'not', value: 'approved' },
+    retry: { step: 'reviewer', maxAttempts: 2, onMaxAttempts: 'continue' },
+    x: 660, y: 345
+  },
+  ship: {
+    id: 'ship', label: 'ship',
+    model: 'claude-sonnet-4-20250514', depth: 'headlines',
+    publishes: ['delivery_summary'],
+    requires: ['review_verdict'], factCount: 1,
+    systemPrompt: 'You compile the final delivery summary.\nInclude all artifacts, decisions, and deployment instructions.',
+    maxTurns: 5, sources: ['all.outputs'], tokenBudget: 8000,
+    when: { fact: 'review_verdict', op: 'equals', value: 'approved' },
+    x: 940, y: 140
+  }
+};
+
+const EDGES = [
+  { from: 'architect', to: 'implement.backend', type: 'solid' },
+  { from: 'architect', to: 'implement.frontend', type: 'solid' },
+  { from: 'implement.backend', to: 'reviewer', type: 'solid' },
+  { from: 'implement.frontend', to: 'reviewer', type: 'solid' },
+  { from: 'reviewer', to: 'revise', type: 'dashed', label: '\u2260 approved' },
+  { from: 'reviewer', to: 'ship', type: 'dashed', label: '= approved' },
+  { from: 'revise', to: 'reviewer', type: 'loop', label: 'retry \u22642' }
+];
+
+const CONTEXT_DIFF = [
+  { step: 'architect', depth: 'detail', tokens: 24000, cost: 0.102 },
+  { step: 'implement.backend', depth: 'summary', tokens: 16000, cost: 0.078 },
+  { step: 'implement.frontend', depth: 'summary', tokens: 16000, cost: 0.078 },
+  { step: 'reviewer', depth: 'full', tokens: 32000, cost: 0.126 },
+  { step: 'revise', depth: 'full', tokens: 32000, cost: 0.126 },
+  { step: 'ship', depth: 'headlines', tokens: 8000, cost: 0.054 }
+];
+
+const FACT_BUS = [
+  { key: 'design', source: 'architect', status: 'published', preview: '{ components: [...], api: [...] }' },
+  { key: 'backend_spec', source: 'architect', status: 'published', preview: 'REST API with 12 endpoints' },
+  { key: 'frontend_spec', source: 'architect', status: 'published', preview: 'React SPA, 8 routes' },
+  { key: 'contracts', source: 'architect', status: 'published', preview: 'OpenAPI 3.0 schema' },
+  { key: 'backend_code', source: 'implement.backend', status: 'pending', preview: '\u2014' },
+  { key: 'backend_tests', source: 'implement.backend', status: 'pending', preview: '\u2014' },
+  { key: 'frontend_code', source: 'implement.frontend', status: 'pending', preview: '\u2014' },
+  { key: 'frontend_tests', source: 'implement.frontend', status: 'pending', preview: '\u2014' },
+  { key: 'review_verdict', source: 'reviewer', status: 'pending', preview: '\u2014' },
+  { key: 'review_issues', source: 'reviewer', status: 'pending', preview: '\u2014' },
+  { key: 'delivery_summary', source: 'ship', status: 'pending', preview: '\u2014' }
+];
+
+/* ═══════════════════════════════════════════════════════════════════
+   THEME TOGGLE
+   ═══════════════════════════════════════════════════════════════════ */
+const htmlEl = document.documentElement;
+const themeBtn = document.getElementById('themeToggle');
+const iconSun = document.getElementById('iconSun');
+const iconMoon = document.getElementById('iconMoon');
+
+function getInitialTheme() {
+  const stored = localStorage.getItem('mc-theme');
+  if (stored) return stored;
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+
+function applyTheme(t) {
+  htmlEl.setAttribute('data-theme', t);
+  localStorage.setItem('mc-theme', t);
+  iconSun.style.display = t === 'dark' ? 'block' : 'none';
+  iconMoon.style.display = t === 'light' ? 'block' : 'none';
+}
+
+applyTheme(getInitialTheme());
+
+themeBtn.addEventListener('click', () => {
+  applyTheme(htmlEl.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+});
+
+// Auto-switch if OS pref changes
+window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
+  if (!localStorage.getItem('mc-theme')) applyTheme(e.matches ? 'light' : 'dark');
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   RENDER NODES
+   ═══════════════════════════════════════════════════════════════════ */
+const nodesContainer = document.getElementById('nodesContainer');
+let selectedStepId = null;
+
+function depthBadgeClass(d) {
+  const m = { full: 'badge-error', detail: 'badge-warning', summary: 'badge-success', headlines: 'badge-info', mention: 'badge-neutral' };
+  return m[d] || 'badge-neutral';
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function shortModel(m) {
+  return m.replace('claude-', '').replace('-20250514', '');
+}
+
+function renderNodes() {
+  nodesContainer.innerHTML = '';
+  Object.values(STEPS).forEach((step) => {
+    const el = document.createElement('div');
+    el.className = 'node';
+    el.style.left = step.x + 'px';
+    el.style.top = step.y + 'px';
+    el.tabIndex = 0;
+    el.setAttribute('role', 'button');
+    el.setAttribute('aria-label', 'Step: ' + step.label + '. Depth: ' + step.depth + '. ' + step.factCount + ' facts.');
+    el.dataset.id = step.id;
+
+    const sel = selectedStepId === step.id;
+    el.innerHTML = `
+      <div class="node-card${sel ? ' selected' : ''}">
+        <div class="node-header">
+          <span class="node-name">${esc(step.label)}</span>
+          <span class="badge badge-neutral" style="font-size:8px">${step.factCount} facts</span>
+        </div>
+        <div class="node-meta">
+          <span class="badge ${depthBadgeClass(step.depth)}">${step.depth}</span>
+          <span class="badge badge-neutral">${shortModel(step.model)}</span>
+        </div>
+        <div class="node-publishes">
+          ${step.publishes.map(p => `<span class="chip chip-sm">${p}</span>`).join('')}
+        </div>
+      </div>`;
+
+    el.addEventListener('click', () => openEditor(step.id));
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEditor(step.id); }
+    });
+    nodesContainer.appendChild(el);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   RENDER EDGES (SVG bezier curves)
+   ═══════════════════════════════════════════════════════════════════ */
+const edgesSvg = document.getElementById('edgesSvg');
+const NODE_W = 210;
+const NODE_H_APPROX = 100;
+
+function nodeRight(id) { const s = STEPS[id]; return { x: s.x + NODE_W, y: s.y + NODE_H_APPROX / 2 }; }
+function nodeLeft(id)  { const s = STEPS[id]; return { x: s.x, y: s.y + NODE_H_APPROX / 2 }; }
+function nodeTop(id)   { const s = STEPS[id]; return { x: s.x + NODE_W / 2, y: s.y }; }
+function nodeBottom(id){ const s = STEPS[id]; return { x: s.x + NODE_W / 2, y: s.y + NODE_H_APPROX }; }
+
+function renderEdges() {
+  const ns = 'http://www.w3.org/2000/svg';
+  edgesSvg.innerHTML = '';
+
+  // Defs for arrowheads
+  const defs = document.createElementNS(ns, 'defs');
+
+  function makeMarker(id, cls) {
+    const m = document.createElementNS(ns, 'marker');
+    m.setAttribute('id', id);
+    m.setAttribute('viewBox', '0 0 10 10');
+    m.setAttribute('refX', '9'); m.setAttribute('refY', '5');
+    m.setAttribute('markerWidth', '7'); m.setAttribute('markerHeight', '7');
+    m.setAttribute('orient', 'auto-start-reverse');
+    const p = document.createElementNS(ns, 'polygon');
+    p.setAttribute('points', '0 1, 10 5, 0 9');
+    p.setAttribute('class', cls);
+    m.appendChild(p);
+    return m;
+  }
+  defs.appendChild(makeMarker('arrow', 'edge-arrow'));
+  defs.appendChild(makeMarker('arrow-d', 'edge-dashed-arrow'));
+  edgesSvg.appendChild(defs);
+
+  function addPath(d, dashed, label) {
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('class', 'edge-line ' + (dashed ? 'edge-dashed' : 'edge-solid'));
+    path.setAttribute('marker-end', dashed ? 'url(#arrow-d)' : 'url(#arrow)');
+    edgesSvg.appendChild(path);
+    return path;
+  }
+  function addLabel(x, y, text) {
+    const t = document.createElementNS(ns, 'text');
+    t.setAttribute('x', x); t.setAttribute('y', y);
+    t.setAttribute('class', 'edge-label');
+    t.textContent = text;
+    edgesSvg.appendChild(t);
+  }
+
+  for (const edge of EDGES) {
+    const dashed = edge.type === 'dashed' || edge.type === 'loop';
+
+    if (edge.type === 'loop') {
+      // revise -> reviewer: curve right and up
+      const f = nodeTop(edge.from);
+      const t = nodeBottom(edge.to);
+      const cpOff = 90;
+      const d = `M ${f.x} ${f.y} C ${f.x + cpOff} ${f.y - cpOff}, ${t.x + cpOff} ${t.y + cpOff}, ${t.x} ${t.y}`;
+      addPath(d, true);
+      if (edge.label) addLabel((f.x + t.x) / 2 + 70, (f.y + t.y) / 2 + 4, edge.label);
+      continue;
+    }
+
+    // reviewer -> revise (down)
+    if (edge.from === 'reviewer' && edge.to === 'revise') {
+      const f = nodeBottom(edge.from);
+      const t = nodeTop(edge.to);
+      const cpY = 50;
+      const d = `M ${f.x} ${f.y} C ${f.x} ${f.y + cpY}, ${t.x} ${t.y - cpY}, ${t.x} ${t.y}`;
+      addPath(d, true);
+      if (edge.label) addLabel(f.x - 50, (f.y + t.y) / 2 + 4, edge.label);
+      continue;
+    }
+
+    // Normal horizontal edges
+    const f = nodeRight(edge.from);
+    const t = nodeLeft(edge.to);
+
+    // Offset converging edges to reviewer slightly
+    let ty = t.y;
+    if (edge.from === 'implement.backend' && edge.to === 'reviewer') ty -= 12;
+    if (edge.from === 'implement.frontend' && edge.to === 'reviewer') ty += 12;
+
+    const dx = t.x - f.x;
+    const cpx = dx * 0.45;
+    const d = `M ${f.x} ${f.y} C ${f.x + cpx} ${f.y}, ${t.x - cpx} ${ty}, ${t.x} ${ty}`;
+    addPath(d, dashed);
+
+    if (edge.label) {
+      addLabel((f.x + t.x) / 2, Math.min(f.y, ty) - 10, edge.label);
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   STEP EDITOR PANEL
+   ═══════════════════════════════════════════════════════════════════ */
+const editorOverlay = document.getElementById('editorOverlay');
+const editorPanel = document.getElementById('editorPanel');
+const editorTitle = document.getElementById('editorTitle');
+const editorBody = document.getElementById('editorBody');
+
+function closeEditor() {
+  selectedStepId = null;
+  editorPanel.classList.remove('open');
+  editorOverlay.classList.remove('open');
+  renderNodes();
+}
+
+document.getElementById('editorOverlay').addEventListener('click', closeEditor);
+document.getElementById('editorClose').addEventListener('click', closeEditor);
+document.getElementById('editorCancel').addEventListener('click', closeEditor);
+document.getElementById('editorSave').addEventListener('click', closeEditor);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && selectedStepId) closeEditor(); });
+
+function sectionBlock(id, label, defaultOpen, inner) {
+  return `<div class="section">
+    <button class="section-toggle" aria-expanded="${defaultOpen}" aria-controls="sec-${id}">
+      ${esc(label)}
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div class="section-content${defaultOpen ? ' open' : ''}" id="sec-${id}">${inner}</div>
+  </div>`;
+}
+
+function openEditor(stepId) {
+  const s = STEPS[stepId];
+  if (!s) return;
+  selectedStepId = stepId;
+  editorTitle.textContent = s.label;
+  renderNodes();
+
+  const depthOpts = ['full','detail','summary','headlines','mention'];
+  const modelOpts = ['claude-sonnet-4-20250514','claude-haiku-4-20250514','gpt-4o','gpt-4o-mini'];
+  const opOpts = ['equals','not','contains','greater_than','less_than'];
+
+  let html = '';
+
+  // Agent
+  html += sectionBlock('agent', 'Agent', true, `
+    <div class="section-row"><label class="label">System Prompt</label>
+      <textarea class="textarea" rows="4" spellcheck="false">${esc(s.systemPrompt)}</textarea></div>
+    <div class="section-row"><label class="label">Model</label>
+      <select class="select" style="font-family:'Geist Mono',monospace;font-size:11px">
+        ${modelOpts.map(m => `<option value="${m}"${m===s.model?' selected':''}>${shortModel(m)}</option>`).join('')}
+      </select></div>
+    <div class="section-row"><label class="label">Max Turns</label>
+      <input class="input" type="number" value="${s.maxTurns}" min="1" max="50" style="font-family:'Geist Mono',monospace;font-size:11px;width:80px"></div>`);
+
+  // Context
+  html += sectionBlock('context', 'Context', true, `
+    <div class="section-row"><label class="label">Depth</label>
+      <select class="select" style="font-family:'Geist Mono',monospace;font-size:11px">
+        ${depthOpts.map(d => `<option value="${d}"${d===s.depth?' selected':''}>${d}</option>`).join('')}
+      </select></div>
+    <div class="section-row"><label class="label">Sources</label>
+      <div class="chips-wrap">${s.sources.map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div></div>
+    <div class="section-row"><label class="label">Token Budget</label>
+      <input class="input" type="number" value="${s.tokenBudget}" step="1000" style="font-family:'Geist Mono',monospace;font-size:11px;width:110px"></div>`);
+
+  // Facts
+  html += sectionBlock('facts', 'Facts', false, `
+    <div class="section-row"><label class="label">Requires</label>
+      <div class="chips-wrap">${s.requires.length ? s.requires.map(r => `<span class="chip">${esc(r)}</span>`).join('') : '<span style="color:var(--text-muted);font-size:11px">None</span>'}</div></div>
+    <div class="section-row"><label class="label">Publishes</label>
+      <div class="chips-wrap">${s.publishes.map(p => `<span class="chip">${esc(p)}</span>`).join('')}</div></div>`);
+
+  // Conditions
+  if (s.when) {
+    html += sectionBlock('cond', 'Conditions', false, `
+      <div class="section-row"><label class="label">When</label>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <input class="input" style="width:120px;font-family:'Geist Mono',monospace;font-size:11px" value="${esc(s.when.fact)}" placeholder="fact key">
+          <select class="select" style="width:100px;font-family:'Geist Mono',monospace;font-size:11px">
+            ${opOpts.map(o => `<option value="${o}"${o===s.when.op?' selected':''}>${o}</option>`).join('')}
+          </select>
+          <input class="input" style="width:100px;font-family:'Geist Mono',monospace;font-size:11px" value="${esc(s.when.value)}" placeholder="value">
+        </div></div>`);
+  }
+
+  // Retry
+  if (s.retry) {
+    html += sectionBlock('retry', 'Retry', false, `
+      <div class="section-row"><label class="label">Target Step</label>
+        <input class="input" value="${esc(s.retry.step)}" readonly style="font-family:'Geist Mono',monospace;font-size:11px;width:140px;opacity:0.6"></div>
+      <div class="section-row"><label class="label">Max Attempts</label>
+        <input class="input" type="number" value="${s.retry.maxAttempts}" min="1" max="10" style="font-family:'Geist Mono',monospace;font-size:11px;width:80px"></div>
+      <div class="section-row"><label class="label">On Max Attempts</label>
+        <select class="select" style="font-family:'Geist Mono',monospace;font-size:11px;width:140px">
+          <option value="continue" selected>continue</option><option value="fail">fail</option><option value="skip">skip</option>
+        </select></div>`);
+  }
+
+  editorBody.innerHTML = html;
+
+  // Wire collapsibles
+  editorBody.querySelectorAll('.section-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const exp = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', String(!exp));
+      btn.nextElementSibling.classList.toggle('open');
+    });
+  });
+
+  editorPanel.classList.add('open');
+  editorOverlay.classList.add('open');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   BOTTOM PANEL
+   ═══════════════════════════════════════════════════════════════════ */
+const bottomPanel = document.getElementById('bottomPanel');
+const bottomExpand = document.getElementById('bottomExpand');
+const contextDiffBody = document.getElementById('contextDiffBody');
+const factBusBody = document.getElementById('factBusBody');
+let activeTab = 'context';
+
+bottomExpand.addEventListener('click', (e) => {
+  e.stopPropagation();
+  bottomPanel.classList.toggle('expanded');
+});
+
+document.querySelectorAll('.bottom-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    activeTab = tab.dataset.tab;
+    document.querySelectorAll('.bottom-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === activeTab));
+    contextDiffBody.classList.toggle('active', activeTab === 'context');
+    factBusBody.classList.toggle('active', activeTab === 'facts');
+    if (!bottomPanel.classList.contains('expanded')) bottomPanel.classList.add('expanded');
+  });
+});
+
+function renderContextDiff() {
+  const maxTok = Math.max(...CONTEXT_DIFF.map(r => r.tokens));
+  const total = CONTEXT_DIFF.reduce((a, r) => ({ t: a.t + r.tokens, c: a.c + r.cost }), { t: 0, c: 0 });
+  const baseline = 192000;
+  const baselineCost = 0.756;
+  const pctSaved = ((baseline - total.t) / baseline * 100).toFixed(0);
+  const costSaved = (baselineCost - total.c).toFixed(3);
+
+  contextDiffBody.innerHTML = `
+    <table class="data-table">
+      <thead><tr><th>Step</th><th>Depth</th><th>Tokens</th><th class="depth-bar-cell"></th><th>Cost</th></tr></thead>
+      <tbody>
+        ${CONTEXT_DIFF.map(r => {
+          const pct = r.tokens / maxTok * 100;
+          const barCls = r.depth === 'full' ? 'depth-full' : r.depth === 'detail' ? 'depth-detail' : r.depth === 'summary' ? 'depth-summary' : 'depth-headlines';
+          return `<tr>
+            <td class="mono strong">${r.step}</td>
+            <td><span class="badge ${depthBadgeClass(r.depth)}" style="font-size:8px">${r.depth}</span></td>
+            <td class="mono">${r.tokens.toLocaleString()}</td>
+            <td class="depth-bar-cell"><div class="depth-bar-wrap"><div class="depth-bar ${barCls}" style="width:${pct}%"></div></div></td>
+            <td class="mono">$${r.cost.toFixed(3)}</td>
+          </tr>`;
+        }).join('')}
+        <tr class="total-row">
+          <td>Total</td><td></td>
+          <td class="mono">${total.t.toLocaleString()}</td><td></td>
+          <td class="mono">$${total.c.toFixed(3)}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="savings-row">
+      <span style="color:var(--text-secondary);font-size:11px">vs flat baseline (${baseline.toLocaleString()} tok / $${baselineCost.toFixed(3)}):</span>
+      <span class="savings-num">\u2212${pctSaved}%</span>
+      <span style="color:var(--text-secondary);font-size:11px">saving</span>
+      <span class="savings-num">$${costSaved}/run</span>
+    </div>`;
+}
+
+function renderFactBus() {
+  factBusBody.innerHTML = `
+    <table class="data-table">
+      <thead><tr><th>Key</th><th>Source</th><th>Status</th><th>Preview</th></tr></thead>
+      <tbody>
+        ${FACT_BUS.map(f => `<tr>
+          <td class="mono strong">${esc(f.key)}</td>
+          <td class="mono">${esc(f.source)}</td>
+          <td><span class="status-dot ${f.status}"></span>${f.status}</td>
+          <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.preview)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   KEYBOARD NAVIGATION
+   ═══════════════════════════════════════════════════════════════════ */
+document.addEventListener('keydown', (e) => {
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+    const nodes = [...document.querySelectorAll('.node')];
+    const focused = document.activeElement?.closest('.node');
+    if (!focused && nodes.length) { nodes[0].focus(); return; }
+    const idx = nodes.indexOf(focused);
+    if (idx < 0) return;
+    const next = e.key === 'ArrowRight' ? Math.min(idx + 1, nodes.length - 1) : Math.max(idx - 1, 0);
+    nodes[next].focus();
+    e.preventDefault();
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════════════════════════ */
+renderNodes();
+renderEdges();
+renderContextDiff();
+renderFactBus();
+
+window.addEventListener('resize', renderEdges);
+</script>
+</body>
+</html>
