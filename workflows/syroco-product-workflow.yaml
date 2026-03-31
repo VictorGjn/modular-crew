@@ -3,42 +3,22 @@
 # ─────────────────────────────────────────────────────────────────────
 # product-workflow.yaml — Syroco Product Workflow E2E
 #
-# The full product pipeline from signal collection to post-ship monitoring.
-# 15 agents across 6 stages, orchestrated as a DAG with fact bus dependencies.
+# 15 agents, 6 stages, 18 facts.
 #
-# ┌─────────── COLLECT ──────────────────────────────────────────────┐
-# │  signal-scanner ───┐                                            │
-# │                    ├──► signal-aggregator ──► hubspot-enrichment │
-# │  granola-extractor ┘                                            │
-# └──────────────────────────────────────────────────────────────────┘
-#         │ aggregated_themes + client_weights
-#         ▼
-# ┌─────────── PRIORISER ────────────────────────────────────────────┐
-# │  opportunity-creator (weekly suggestions from theme scores)      │
-# └──────────────────────────────────────────────────────────────────┘
-#         │ opportunity_briefs
-#         ▼
-# ┌─────────── DISCOVERY ────────────────────────────────────────────┐
-# │  discovery-enrichment (6 parallel research tracks)               │
-# └──────────────────────────────────────────────────────────────────┘
-#         │ discovery_brief
-#         ▼
-# ┌─────────── SOLUTION ─────────────────────────────────────────────┐
-# │  prd-generator ──► test-plan-generator                           │
-# └──────────────────────────────────────────────────────────────────┘
-#         │ prd_document + test_plan
-#         ▼
-# ┌─────────── DELIVERY ─────────────────────────────────────────────┐
-# │  ticket-creator ──► dev-progress-monitor (daily loop)            │
-# └──────────────────────────────────────────────────────────────────┘
-#         │ linear_issues + progress_report
-#         ▼
-# ┌─────────── POST-SHIP ───────────────────────────────────────────┐
-# │  release-monitor ──► release-note-generator                      │
-# │                  └──► doc-auto-update                             │
-# │  success-metrics-tracker                                         │
-# │  dashboard-data-sync                                             │
-# └──────────────────────────────────────────────────────────────────┘
+# Context Engineering model (from modular-patchbay):
+#   Each agent gets sources at PER-SOURCE depth, not one global depth.
+#   - resolution: how to find relevant content (keyword|semantic|graph|semantic_graph)
+#   - sources: typed URIs at individual depths + knowledge types + token caps
+#   - adaptiveRetrieval: detect hedging in output, re-fetch, retry
+#   - traversal: follow Notion relations, code imports, doc references
+#   - knowledgePriority: when budget is tight, which knowledge types survive
+#
+# Source URI schemes:
+#   step://{stepName}         — fact from previous step
+#   notion://{database_id}    — Notion database query
+#   file://{path}             — local file or directory
+#   repo://{owner}/{repo}     — GitHub repo (indexed)
+#   cache://{skill}/{file}    — cached data from a skill
 #
 # ─────────────────────────────────────────────────────────────────────
 
@@ -46,10 +26,9 @@ $schema: "../schema/team.schema.json"
 version: 1
 name: syroco-product-workflow
 description: >
-  End-to-end product workflow for Syroco. 15 agents across 6 stages:
-  Collect (4) → Prioriser (1) → Discovery (1) → Solution (2) →
-  Delivery (2) → Post-Ship (5). Connects Gmail, Notion, Granola,
-  Linear, GitHub, Slack, and Metabase.
+  End-to-end product workflow with full context engineering.
+  15 agents, 6 stages: Collect (4) → Prioriser (1) → Discovery (1) →
+  Solution (2) → Delivery (2) → Post-Ship (5).
 
 defaults:
   provider: anthropic
@@ -64,14 +43,15 @@ budget:
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  STAGE 1: COLLECT — Capture signals from all sources
+#  STAGE 1: COLLECT
 # ═══════════════════════════════════════════════════════════════════
 
 flow:
 
-  # ── 1. Parallel signal collection ────────────────────────────────
   collect:
     parallel:
+
+      # ── Signal Scanner (Gmail → Notion) ──────────────────────────
       signal-scanner:
         agent:
           system: |
@@ -87,8 +67,24 @@ flow:
           tools: [gmail_search, gmail_read, notion_query, notion_create_page, notion_add_comment]
         publishes: [new_signals]
         context:
-          depth: full
+          tokenBudget: 12000
+          resolution: keyword                    # all sources are known, no discovery needed
+          sources:
+            - uri: "file://skills/sauna/onwatch-signal-scan/SKILL.md"
+              depth: full                        # needs the complete extraction rules
+              knowledgeType: framework
+            - uri: "notion://2fb15f7a-f269-81ef"  # Signals DB (existing, for dedup)
+              depth: headlines                   # just titles + client for dedup check
+              knowledgeType: ground_truth
+              maxTokens: 3000
+            - uri: "cache://notion/signal_category_counts.json"
+              depth: full                        # small file, need exact counts
+              knowledgeType: evidence
+            - uri: "file://documents/00 - Knowledge/Products/OVERVIEW.md"
+              depth: mention                     # minimal product awareness
+              knowledgeType: ground_truth
 
+      # ── Granola Signal Extractor (Meetings → Notion) ─────────────
       granola-extractor:
         agent:
           system: |
@@ -102,9 +98,25 @@ flow:
           tools: [granola_search_meetings, granola_get_transcript, notion_query, notion_create_page]
         publishes: [meeting_signals]
         context:
-          depth: full
+          tokenBudget: 14000
+          resolution: keyword
+          sources:
+            - uri: "notion://2fb15f7a-f269-81ef"  # Signals DB (dedup)
+              depth: headlines
+              knowledgeType: ground_truth
+              maxTokens: 3000
+            - uri: "cache://notion/theme_pages.json"
+              depth: full                        # need 15 theme names for categorization
+              knowledgeType: framework
+            - uri: "file://documents/00 - Knowledge/Products/OVERVIEW.md"
+              depth: summary                     # product awareness for categorization
+              knowledgeType: ground_truth
+            - uri: "file://documents/00 - Knowledge/Users/PERSONAS.md"
+              depth: headlines                   # know who the users are
+              knowledgeType: framework
 
-  # ── 2. Signal Aggregator ─────────────────────────────────────────
+
+  # ── Signal Aggregator ──────────────────────────────────────────
   signal-aggregator:
     after: [collect]
     agent:
@@ -120,10 +132,30 @@ flow:
     requires: [new_signals, meeting_signals]
     publishes: [aggregated_themes, digest_posted]
     context:
-      depth: detail
-      sources: [new_signals, meeting_signals]
+      tokenBudget: 20000
+      resolution: keyword
+      sources:
+        - uri: "step://new_signals"
+          depth: full                          # primary input: what was just collected
+          knowledgeType: evidence
+        - uri: "step://meeting_signals"
+          depth: full                          # primary input: meeting-sourced signals
+          knowledgeType: evidence
+        - uri: "cache://notion/signal_category_counts.json"
+          depth: full                          # previous counts for delta detection
+          knowledgeType: evidence
+        - uri: "cache://notion/theme_pages.json"
+          depth: detail                        # theme page IDs for updating
+          knowledgeType: framework
+        - uri: "notion://2fb15f7a-f269-81ef"   # Signals DB (full query for counts)
+          depth: summary                       # property values, not full content
+          knowledgeType: ground_truth
+      traversal:
+        followRelations: true                  # Signal → Opportunity links (what's already covered)
+        maxHops: 1
 
-  # ── 3. HubSpot Client Priority (STUBBED) ─────────────────────────
+
+  # ── HubSpot Client Priority (STUBBED) ──────────────────────────
   hubspot-enrichment:
     after: [signal-aggregator]
     agent:
@@ -137,15 +169,19 @@ flow:
     requires: [aggregated_themes]
     publishes: [client_weights]
     context:
-      depth: mention
+      tokenBudget: 2000
+      resolution: keyword
+      sources:
+        - uri: "step://aggregated_themes"
+          depth: mention                     # only need client names from the theme matrix
+          knowledgeType: evidence
     timeout: 30
 
 
   # ═══════════════════════════════════════════════════════════════════
-  #  STAGE 2: PRIORISER — Transform signals into scored opportunities
+  #  STAGE 2: PRIORISER
   # ═══════════════════════════════════════════════════════════════════
 
-  # ── 4. Opportunity Creator ───────────────────────────────────────
   opportunity-creator:
     after: [hubspot-enrichment]
     agent:
@@ -164,19 +200,41 @@ flow:
     publishes: [opportunity_suggestions]
     approval: true
     context:
-      depth: detail
-      sources: [aggregated_themes, client_weights]
+      tokenBudget: 24000
+      resolution: semantic                     # need to match theme concepts to KR descriptions
+      adaptiveRetrieval: true                  # if KR alignment scoring is uncertain, fetch more
+      knowledgePriority: [framework, evidence, ground_truth]
+      sources:
+        - uri: "step://aggregated_themes"
+          depth: full                          # primary scoring input: theme matrix with counts
+          knowledgeType: evidence
+        - uri: "step://client_weights"
+          depth: full                          # scoring factor: per-client weighted ARR
+          knowledgeType: evidence
+        - uri: "notion://2fb15f7a-f269-81ad"   # Key Results DB
+          depth: detail                        # need KR titles + descriptions for alignment
+          knowledgeType: framework
+        - uri: "notion://2fb15f7a-f269-8117"   # Existing Opportunities DB
+          depth: headlines                     # just titles + status for dedup
+          knowledgeType: ground_truth
+          maxTokens: 3000
+        - uri: "file://documents/00 - Knowledge/Products/OVERVIEW.md"
+          depth: mention                       # minimal product context
+          knowledgeType: ground_truth
+      traversal:
+        followRelations: true                  # KR → Objective → Strategy (strategic context)
+        followDocs: true
+        maxHops: 2
 
 
   # ═══════════════════════════════════════════════════════════════════
-  #  STAGE 3: DISCOVERY — Deep research on validated opportunities
+  #  STAGE 3: DISCOVERY
   # ═══════════════════════════════════════════════════════════════════
 
-  # ── 5. Discovery Enrichment (6 parallel research tracks) ─────────
   discovery-enrichment:
     after: [opportunity-creator]
     agent:
-      tokenBudget: 32000
+      tokenBudget: 40000
       system: |
         You are a discovery research agent for Syroco.
         For a given Opportunity, run 6 parallel research tracks:
@@ -192,20 +250,46 @@ flow:
     requires: [opportunity_suggestions]
     publishes: [discovery_brief]
     context:
-      depth: full
-      sources: [opportunity_suggestions]
+      tokenBudget: 40000
+      resolution: semantic_graph               # full discovery: embedding entry points + graph traversal
+      adaptiveRetrieval: true                  # exploratory research: re-fetch when uncertain
+      knowledgePriority: [evidence, signal, ground_truth, framework]
+      sources:
+        - uri: "step://opportunity_suggestions"
+          depth: full                          # the specific opportunity to research
+          knowledgeType: hypothesis
+        - uri: "notion://2fb15f7a-f269-81ef"   # Signals DB (theme-filtered)
+          depth: full                          # need complete signals: quotes, details, vessels
+          knowledgeType: signal
+          maxTokens: 12000
+        - uri: "step://client_weights"
+          depth: detail                        # client ARR context for impact assessment
+          knowledgeType: evidence
+        - uri: "file://documents/00 - Knowledge/Market/LANDSCAPE.md"
+          depth: detail                        # existing competitive intel
+          knowledgeType: evidence
+        - uri: "file://documents/00 - Knowledge/Products/"
+          depth: summary                       # current product capabilities
+          knowledgeType: ground_truth
+          maxTokens: 4000
+        - uri: "file://documents/00 - Knowledge/Users/PERSONAS.md"
+          depth: detail                        # user profiles for context
+          knowledgeType: framework
+      traversal:
+        followRelations: true                  # Signal → Opportunity → KR → Objective chain
+        followDocs: true
+        maxHops: 3
     timeout: 300
 
 
   # ═══════════════════════════════════════════════════════════════════
-  #  STAGE 4: SOLUTION — PRD + Test Plan from discovery brief
+  #  STAGE 4: SOLUTION
   # ═══════════════════════════════════════════════════════════════════
 
-  # ── 6. PRD Generator ─────────────────────────────────────────────
   prd-generator:
     after: [discovery-enrichment]
     agent:
-      tokenBudget: 32000
+      tokenBudget: 40000
       system: |
         You are a PRD writing agent for Syroco.
         Transform a Discovery Brief + focus brief into a comprehensive PRD.
@@ -221,10 +305,42 @@ flow:
     publishes: [prd_document, acceptance_criteria]
     approval: true
     context:
-      depth: detail
-      sources: [discovery_brief]
+      tokenBudget: 40000
+      resolution: semantic_graph               # need to find architecturally related code + docs
+      adaptiveRetrieval: true                  # PRDs need high accuracy, retry on uncertainty
+      knowledgePriority: [ground_truth, framework, evidence, signal]
+      sources:
+        - uri: "step://discovery_brief"
+          depth: full                          # primary input: the complete discovery research
+          knowledgeType: evidence
+        - uri: "file://documents/00 - Knowledge/Products/INFRASTRUCTURE.md"
+          depth: detail                        # system architecture, service topology
+          knowledgeType: ground_truth
+        - uri: "file://documents/00 - Knowledge/Products/LIVE.md"
+          depth: summary                       # Live app current features
+          knowledgeType: ground_truth
+        - uri: "file://documents/00 - Knowledge/Products/FLEET.md"
+          depth: summary                       # Fleet app current features
+          knowledgeType: ground_truth
+        - uri: "file://documents/00 - Knowledge/Products/REPORTS.md"
+          depth: summary                       # NR backend features
+          knowledgeType: ground_truth
+        - uri: "file://documents/00 - Knowledge/Products/API_REFERENCE.md"
+          depth: detail                        # existing API contracts to align with
+          knowledgeType: ground_truth
+        - uri: "cache://github/syroco_repos.json"
+          depth: summary                       # repo versions, tech stack, core modules
+          knowledgeType: framework
+        - uri: "file://documents/03 - Solutions/"
+          depth: headlines                     # existing PRDs for format precedent
+          knowledgeType: artifact
+          maxTokens: 2000
+      traversal:
+        followImports: true                    # code: follow import chains from entry points
+        followDocs: true                       # cross-type: code → doc → test
+        followTests: true                      # include test patterns for the test plan section
+        maxHops: 2
 
-  # ── 7. Test Plan Generator ───────────────────────────────────────
   test-plan-generator:
     after: [prd-generator]
     agent:
@@ -241,15 +357,34 @@ flow:
     requires: [prd_document, acceptance_criteria]
     publishes: [test_plan]
     context:
-      depth: summary
-      sources: [acceptance_criteria]
+      tokenBudget: 16000
+      resolution: graph                        # follow from ACs → code paths → existing tests
+      sources:
+        - uri: "step://acceptance_criteria"
+          depth: full                          # primary input: every AC must map to a test
+          knowledgeType: ground_truth
+        - uri: "step://prd_document"
+          depth: detail                        # API contracts + architecture for integration tests
+          knowledgeType: ground_truth
+        - uri: "file://documents/00 - Knowledge/Products/LIVE.md"
+          depth: headlines                     # feature list for regression risk assessment
+          knowledgeType: ground_truth
+        - uri: "file://documents/00 - Knowledge/Products/FLEET.md"
+          depth: headlines
+          knowledgeType: ground_truth
+        - uri: "file://documents/00 - Knowledge/Products/REPORTS.md"
+          depth: headlines
+          knowledgeType: ground_truth
+      traversal:
+        followTests: true                      # find existing test patterns in the codebase
+        followImports: true                    # trace AC → code → dependencies
+        maxHops: 2
 
 
   # ═══════════════════════════════════════════════════════════════════
-  #  STAGE 5: DELIVERY — Tickets + progress monitoring
+  #  STAGE 5: DELIVERY
   # ═══════════════════════════════════════════════════════════════════
 
-  # ── 8. Ticket Creator (PRD → Linear) ─────────────────────────────
   ticket-creator:
     after: [test-plan-generator]
     agent:
@@ -267,10 +402,22 @@ flow:
     publishes: [linear_issues]
     approval: true
     context:
-      depth: summary
-      sources: [acceptance_criteria]
+      tokenBudget: 16000
+      resolution: keyword                      # all sources known, no discovery
+      sources:
+        - uri: "step://acceptance_criteria"
+          depth: full                          # primary decomposition input
+          knowledgeType: ground_truth
+        - uri: "step://prd_document"
+          depth: summary                       # implementation phases for grouping
+          knowledgeType: ground_truth
+        - uri: "step://test_plan"
+          depth: headlines                     # test coverage awareness
+          knowledgeType: framework
+        - uri: "cache://linear/projects.json"
+          depth: full                          # avoid duplicate projects, get IDs
+          knowledgeType: ground_truth
 
-  # ── 9. Dev Progress Monitor (daily loop) ─────────────────────────
   dev-progress-monitor:
     after: [ticket-creator]
     agent:
@@ -284,20 +431,25 @@ flow:
         Fetch GitHub PRs merged in last 24h across: efficientship-live, fleet, efficientship-backend.
         Cross-reference PR titles with Linear issue IDs (SYR-XXX pattern).
         Post daily brief to Slack #engineering-updates.
-        Format: PRs merged, project progress bars, blockers with assignees.
       tools: [linear_query_issues, github_list_prs, slack_post_message]
     requires: [linear_issues]
     publishes: [progress_report]
     context:
-      depth: headlines
-      sources: [linear_issues]
+      tokenBudget: 8000
+      resolution: keyword                      # data retrieval, no reasoning discovery
+      sources:
+        - uri: "step://linear_issues"
+          depth: headlines                     # issue IDs + project names for tracking
+          knowledgeType: ground_truth
+        - uri: "cache://dev-progress-monitor/yesterday_state.json"
+          depth: full                          # previous snapshot for delta detection
+          knowledgeType: evidence
 
 
   # ═══════════════════════════════════════════════════════════════════
-  #  STAGE 6: POST-SHIP — Monitor, document, report, sync dashboard
+  #  STAGE 6: POST-SHIP
   # ═══════════════════════════════════════════════════════════════════
 
-  # ── 10. Release Monitor ──────────────────────────────────────────
   release-monitor:
     agent:
       model: claude-haiku-4-20250514
@@ -308,14 +460,31 @@ flow:
         Fetch commits since last release with file-level diffs.
         Cluster changes by domain. Assign depth: Full (new features),
         Detail (fixes), Summary (infra), Mention (chore).
-        Update product docs (LIVE.md, FLEET.md, REPORTS.md) with depth-aware edits.
-        Update version cache.
+        Update product docs with depth-aware edits. Update version cache.
       tools: [github_get_releases, github_get_commits, file_read, file_write]
     publishes: [release_detected, version_cache]
     context:
-      depth: summary
+      tokenBudget: 12000
+      resolution: graph                        # follow file changes → module → feature cluster
+      knowledgePriority: [ground_truth, framework]
+      sources:
+        - uri: "cache://github/syroco_repos.json"
+          depth: full                          # previous versions + changelog for comparison
+          knowledgeType: ground_truth
+        - uri: "repo://syrocolab/efficientship-backend"
+          depth: summary                       # module structure awareness
+          knowledgeType: ground_truth
+        - uri: "repo://syrocolab/efficientship-live"
+          depth: headlines                     # page/component structure
+          knowledgeType: ground_truth
+        - uri: "repo://syrocolab/fleet"
+          depth: headlines
+          knowledgeType: ground_truth
+      traversal:
+        followImports: true                    # changed file → what depends on it
+        followDocs: true                       # changed code → related docs to update
+        maxHops: 2
 
-  # ── 11. Release Note Generator ──────────────────────────────────
   release-note-generator:
     after: [release-monitor]
     agent:
@@ -333,10 +502,27 @@ flow:
     publishes: [release_notes]
     approval: true
     context:
-      depth: detail
-      sources: [release_detected]
+      tokenBudget: 20000
+      resolution: semantic                     # bridge PR titles to user-facing descriptions
+      adaptiveRetrieval: true                  # re-fetch PRD context if framing is uncertain
+      knowledgePriority: [ground_truth, evidence, artifact]
+      sources:
+        - uri: "step://release_detected"
+          depth: full                          # what changed: clusters, files, versions
+          knowledgeType: evidence
+        - uri: "file://documents/03 - Solutions/"
+          depth: summary                       # PRDs for feature context (problem → benefit)
+          knowledgeType: ground_truth
+          maxTokens: 6000
+        - uri: "file://documents/00 - Knowledge/Products/"
+          depth: summary                       # current feature descriptions for consistency
+          knowledgeType: ground_truth
+          maxTokens: 4000
+        - uri: "cache://release-note-generator/release_notes_history.json"
+          depth: headlines                     # previous notes for tone/format consistency
+          knowledgeType: artifact
+          maxTokens: 2000
 
-  # ── 12. Doc Auto-Update (part of release monitor) ────────────────
   doc-auto-update:
     after: [release-monitor]
     agent:
@@ -353,42 +539,81 @@ flow:
     requires: [release_detected, version_cache]
     publishes: [docs_updated]
     context:
-      depth: summary
-      sources: [release_detected]
+      tokenBudget: 16000
+      resolution: keyword
+      sources:
+        - uri: "step://release_detected"
+          depth: detail                        # change clusters with depth assignments
+          knowledgeType: evidence
+        - uri: "step://version_cache"
+          depth: full                          # new version numbers for all repos
+          knowledgeType: ground_truth
+        - uri: "file://documents/00 - Knowledge/Products/LIVE.md"
+          depth: full                          # must read current content to make surgical edits
+          knowledgeType: ground_truth
+        - uri: "file://documents/00 - Knowledge/Products/FLEET.md"
+          depth: full
+          knowledgeType: ground_truth
+        - uri: "file://documents/00 - Knowledge/Products/REPORTS.md"
+          depth: full
+          knowledgeType: ground_truth
 
-  # ── 13. Success Metrics Tracker (STUB) ───────────────────────────
   success-metrics-tracker:
     agent:
       model: claude-haiku-4-20250514
       system: |
         PARTIALLY STUBBED: Mixpanel not connected.
-        Scan shipped PRDs in documents/03 - Solutions/ for Success Metrics tables.
-        For Metabase metrics (available):
-          SCR (question 44), Fuel Savings (51), Time Savings (53),
-          Route Matching (60), NR 24h (39) at http://192.168.10.23:3000.
-        Compare current values with PRD targets.
-        Post health report to Slack. Update dashboard JSON kpis section.
+        Scan shipped PRDs for Success Metrics tables.
+        For Metabase metrics: SCR (44), Fuel Savings (51), Time Savings (53),
+        Route Matching (60), NR 24h (39) at http://192.168.10.23:3000.
+        Compare current with PRD targets. Post health report to Slack.
       tools: [file_read, metabase_query, slack_post_message]
     publishes: [metrics_report]
     context:
-      depth: summary
+      tokenBudget: 10000
+      resolution: keyword
+      knowledgePriority: [ground_truth, evidence]
+      sources:
+        - uri: "file://documents/03 - Solutions/"
+          depth: summary                       # find Success Metrics tables in PRDs
+          knowledgeType: ground_truth
+          maxTokens: 4000
+        - uri: "notion://2fb15f7a-f269-81b4"   # Deliveries DB (what shipped)
+          depth: headlines                     # just titles + status = Released
+          knowledgeType: ground_truth
+          maxTokens: 2000
 
-  # ── 14. Dashboard Data Sync ──────────────────────────────────────
   dashboard-data-sync:
     agent:
       system: |
         You are the dashboard synchronization agent for Syroco.
-        Read from 5 Notion databases:
-        - Objectives (2fb15f7a-f269-81c4-a617-da42c3767bca)
-        - Key Results (2fb15f7a-f269-81ad-a9f4-f31790c9e832)
-        - Initiatives (2fb15f7a-f269-8136-8054-ffe92d1a7d85) [may be NOT_SHARED]
-        - Signals (2fb15f7a-f269-81ef-b9d1-e72380767ebf) [counts only]
-        - Deliveries (2fb15f7a-f269-81b4-abc6-d3807d4ad91d)
-        Generate roadmap-data.json matching the HTML dashboard structure:
-        { hero: {}, objectives: [], initiatives: {}, deals: {}, kpis: {} }
+        Read from 5 Notion databases. Generate roadmap-data.json matching the
+        HTML dashboard structure: { hero, objectives, initiatives, deals, kpis }.
         Push to syrocolab/syroco-product-ops repo via GitHub API.
         If a DB is inaccessible, use cached data and note "stale" in commit message.
       tools: [notion_query, github_push_file]
     publishes: [dashboard_synced]
     context:
-      depth: detail
+      tokenBudget: 20000
+      resolution: keyword                      # all sources are explicit DB IDs
+      sources:
+        - uri: "notion://2fb15f7a-f269-81c4"   # Objectives DB
+          depth: detail                        # titles + KR links
+          knowledgeType: framework
+        - uri: "notion://2fb15f7a-f269-81ad"   # Key Results DB
+          depth: detail                        # KR titles, periods, labels
+          knowledgeType: framework
+        - uri: "notion://2fb15f7a-f269-8136"   # Initiatives DB (may be NOT_SHARED)
+          depth: detail                        # phase, squad, product, timeframe
+          knowledgeType: framework
+        - uri: "notion://2fb15f7a-f269-81ef"   # Signals DB (counts only)
+          depth: mention                       # just need count per category
+          knowledgeType: evidence
+          maxTokens: 1000
+        - uri: "notion://2fb15f7a-f269-81b4"   # Deliveries DB
+          depth: summary                       # status, progress, release dates
+          knowledgeType: ground_truth
+        - uri: "cache://roadmap-data-sync/roadmap-data.json"
+          depth: headlines                     # previous JSON for schema conformance
+          knowledgeType: artifact
+          maxTokens: 1000
