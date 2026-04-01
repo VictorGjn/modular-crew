@@ -1,0 +1,38 @@
+name: verify-crew
+description: Implementation with verification loop
+version: 1
+defaults:
+  model: claude-sonnet-4-20250514
+  maxTurns: 15
+budget:
+  maxCost: 3.00
+flow:
+  plan:
+    agent:
+      system: "Create implementation plan"
+    publishes: [implementation_plan, acceptance_criteria]
+  implement:
+    agent:
+      system: "Implement code changes"
+    after: plan
+    requires: [implementation_plan]
+    publishes: [implementation_output, code_changes]
+  verify:
+    agent:
+      system: "Verify against spec"
+    after: implement
+    requires: [acceptance_criteria, implementation_output]
+    publishes: [verification_result]
+    retry:
+      step: implement
+      maxAttempts: 3
+      onMaxAttempts: human
+  review:
+    agent:
+      system: "Review code quality"
+    after: verify
+    when:
+      fact: verification_result
+      equals: "pass"
+    requires: [code_changes]
+    publishes: [review_feedback]
