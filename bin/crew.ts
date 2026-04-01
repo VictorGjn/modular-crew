@@ -14,7 +14,7 @@ import { estimateCost, DEPTH_TOKEN_RATIOS } from '../src/types.js';
 
 // Phase 2 imports
 import { CoordinatorEngine } from '../src/orchestrator/coordinatorEngine.js';
-import { SQLiteMailbox } from '../src/facts/mailbox.js';
+import { InMemoryMailbox, SQLiteMailbox } from '../src/facts/mailbox.js';
 import { loadResumeState, restoreFacts, getStepsToExecute } from '../src/orchestrator/resume.js';
 import { runHooks, type HooksConfig } from '../src/hooks/hookRunner.js';
 import { requestApproval, logApprovalEvent } from '../src/orchestrator/approvalGate.js';
@@ -23,6 +23,7 @@ import { generateUltraPlan, shouldTriggerUltraplan } from '../src/orchestrator/u
 import { runBackgroundTasks, type BackgroundTaskDef } from '../src/background/backgroundRunner.js';
 import { runConsolidation } from '../src/background/memoryConsolidator.js';
 import { prepareAgentWorktree } from '../src/worktree/worktreeManager.js';
+import { resolvePreset, listPresets } from '../src/presets/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = existsSync(resolve(__dirname, '..', 'package.json'))
@@ -720,5 +721,19 @@ function evaluateSimpleCondition(when: any, factBus: FactBus): boolean {
   }
   return true;
 }
+
+
+// ── presets ──────────────────────────────────────────────
+
+program
+  .command('presets')
+  .description('List available agent presets')
+  .action(() => {
+    console.log(chalk.bold.cyan('\n  Agent Presets\n'));
+    for (const p of listPresets()) {
+      console.log(`  ${chalk.green('▸')} ${chalk.bold(p.name.padEnd(12))} ${chalk.gray(p.role)} ${chalk.dim(`(${p.maxTurns} turns)`)}`);
+    }
+    console.log();
+  });
 
 program.parse();
