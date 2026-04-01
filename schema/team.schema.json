@@ -1,420 +1,171 @@
 {
   "type": "object",
   "properties": {
-    "$schema": {
-      "type": "string"
+    "$schema": { "type": "string" },
+    "version": { "type": "number", "enum": [1], "default": 1 },
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "mode": { "type": "string", "enum": ["dag", "coordinator"] },
+    "coordinator": {
+      "type": "object",
+      "properties": {
+        "scratchpad": { "type": "boolean" },
+        "max_workers": { "type": "number" },
+        "max_rounds": { "type": "number" }
+      },
+      "additionalProperties": false
     },
-    "version": {
-      "type": "number",
-      "enum": [
-        1
-      ],
-      "default": 1
+    "hooks": {
+      "type": "object",
+      "properties": {
+        "before_run": { "type": "array", "items": { "$ref": "#/$defs/hookDefinition" } },
+        "after_run": { "type": "array", "items": { "$ref": "#/$defs/hookDefinition" } },
+        "before_step": { "type": "array", "items": { "$ref": "#/$defs/hookDefinition" } },
+        "after_step": { "type": "array", "items": { "$ref": "#/$defs/hookDefinition" } }
+      },
+      "additionalProperties": false
     },
-    "name": {
-      "type": "string"
-    },
-    "description": {
-      "type": "string"
+    "background": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "trigger": { "type": "string" },
+          "min_interval": { "type": "number" },
+          "role": { "type": "string" },
+          "phases": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["name", "trigger", "min_interval", "role", "phases"]
+      }
     },
     "studio": {
       "type": "object",
       "properties": {
-        "url": {
-          "type": "string",
-          "format": "uri"
-        },
-        "apiVersion": {
-          "type": "string",
-          "default": "v1"
-        }
+        "url": { "type": "string", "format": "uri" },
+        "apiVersion": { "type": "string", "default": "v1" }
       },
-      "required": [
-        "url"
-      ],
+      "required": ["url"],
       "additionalProperties": false
     },
     "defaults": {
       "type": "object",
       "properties": {
-        "provider": {
-          "type": "string",
-          "default": "anthropic"
-        },
-        "model": {
-          "type": "string",
-          "default": "claude-sonnet-4-20250514"
-        },
-        "maxTurns": {
-          "type": "number",
-          "exclusiveMinimum": true,
-          "minimum": 0,
-          "default": 15
-        },
-        "tokenBudget": {
-          "type": "number",
-          "exclusiveMinimum": true,
-          "minimum": 0,
-          "default": 50000
-        },
-        "maxOutputTokens": {
-          "type": "number",
-          "exclusiveMinimum": true,
-          "minimum": 0,
-          "default": 4000
-        },
-        "stepTimeout": {
-          "type": "number",
-          "exclusiveMinimum": true,
-          "minimum": 0,
-          "default": 300000
-        }
+        "provider": { "type": "string", "default": "anthropic" },
+        "model": { "type": "string", "default": "claude-sonnet-4-20250514" },
+        "maxTurns": { "type": "number", "exclusiveMinimum": true, "minimum": 0, "default": 15 },
+        "tokenBudget": { "type": "number", "exclusiveMinimum": true, "minimum": 0, "default": 50000 },
+        "maxOutputTokens": { "type": "number", "exclusiveMinimum": true, "minimum": 0, "default": 4000 },
+        "stepTimeout": { "type": "number", "exclusiveMinimum": true, "minimum": 0, "default": 300000 }
       },
       "additionalProperties": false
     },
     "budget": {
       "type": "object",
       "properties": {
-        "maxCost": {
-          "type": "number",
-          "exclusiveMinimum": true,
-          "minimum": 0
-        },
-        "maxTokens": {
-          "type": "number",
-          "exclusiveMinimum": true,
-          "minimum": 0
-        }
+        "maxCost": { "type": "number", "exclusiveMinimum": true, "minimum": 0 },
+        "maxTokens": { "type": "number", "exclusiveMinimum": true, "minimum": 0 }
       },
       "additionalProperties": false
+    },
+    "agents": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "role": { "type": "string" },
+          "is_coordinator": { "type": "boolean" },
+          "system": { "type": "string" },
+          "model": { "type": "string" },
+          "preset": { "type": "string" },
+          "repo": { "type": "string" },
+          "base_ref": { "type": "string" }
+        },
+        "required": ["role"]
+      }
     },
     "flow": {
       "type": "object",
       "additionalProperties": {
         "type": "object",
         "properties": {
-          "agent": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "model": {
-                    "type": "string"
-                  },
-                  "system": {
-                    "type": "string"
-                  },
-                  "tools": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "maxTurns": {
-                    "type": "number",
-                    "exclusiveMinimum": true,
-                    "minimum": 0
-                  },
-                  "maxOutputTokens": {
-                    "type": "number",
-                    "exclusiveMinimum": true,
-                    "minimum": 0
-                  },
-                  "tokenBudget": {
-                    "type": "number",
-                    "exclusiveMinimum": true,
-                    "minimum": 0
-                  }
-                },
-                "required": [
-                  "system"
-                ],
-                "additionalProperties": false
-              }
-            ]
-          },
-          "role": {
-            "type": "string"
-          },
+          "agent": { "anyOf": [{ "type": "string" }, { "$ref": "#/$defs/inlineAgent" }] },
+          "role": { "type": "string" },
           "parallel": {
             "type": "object",
             "additionalProperties": {
               "type": "object",
               "properties": {
-                "agent": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "model": {
-                          "type": "string"
-                        },
-                        "system": {
-                          "type": "string"
-                        },
-                        "tools": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "maxTurns": {
-                          "type": "number",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
-                        },
-                        "maxOutputTokens": {
-                          "type": "number",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
-                        },
-                        "tokenBudget": {
-                          "type": "number",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
-                        }
-                      },
-                      "required": [
-                        "system"
-                      ],
-                      "additionalProperties": false
-                    }
-                  ]
-                },
-                "requires": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "context": {
-                  "type": "object",
-                  "properties": {
-                    "depth": {
-                      "type": "string",
-                      "enum": [
-                        "full",
-                        "detail",
-                        "summary",
-                        "headlines",
-                        "mention"
-                      ],
-                      "default": "detail"
-                    },
-                    "sources": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "tokenBudget": {
-                      "type": "number",
-                      "exclusiveMinimum": true,
-                      "minimum": 0
-                    },
-                    "adaptiveRetrieval": {
-                      "type": "boolean",
-                      "default": false
-                    },
-                    "traversal": {
-                      "type": "object",
-                      "properties": {
-                        "followImports": {
-                          "type": "boolean",
-                          "default": true
-                        },
-                        "followTests": {
-                          "type": "boolean",
-                          "default": false
-                        },
-                        "followDocs": {
-                          "type": "boolean",
-                          "default": true
-                        }
-                      },
-                      "additionalProperties": false
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                "publishes": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "role": {
-                  "type": "string"
-                }
+                "agent": { "anyOf": [{ "type": "string" }, { "$ref": "#/$defs/inlineAgent" }] },
+                "requires": { "type": "array", "items": { "type": "string" } },
+                "context": { "$ref": "#/$defs/contextSpec" },
+                "publishes": { "type": "array", "items": { "type": "string" } },
+                "role": { "type": "string" }
               },
-              "required": [
-                "agent"
-              ],
+              "required": ["agent"],
               "additionalProperties": false
             }
           },
-          "after": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              }
-            ]
-          },
-          "requires": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "publishes": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "context": {
-            "type": "object",
-            "properties": {
-              "depth": {
-                "type": "string",
-                "enum": [
-                  "full",
-                  "detail",
-                  "summary",
-                  "headlines",
-                  "mention"
-                ],
-                "default": "detail"
-              },
-              "sources": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "tokenBudget": {
-                "type": "number",
-                "exclusiveMinimum": true,
-                "minimum": 0
-              },
-              "adaptiveRetrieval": {
-                "type": "boolean",
-                "default": false
-              },
-              "traversal": {
-                "type": "object",
-                "properties": {
-                  "followImports": {
-                    "type": "boolean",
-                    "default": true
-                  },
-                  "followTests": {
-                    "type": "boolean",
-                    "default": false
-                  },
-                  "followDocs": {
-                    "type": "boolean",
-                    "default": true
-                  }
-                },
-                "additionalProperties": false
-              }
-            },
-            "additionalProperties": false
-          },
-          "when": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "fact": {
-                    "type": "string"
-                  },
-                  "equals": {
-                    "type": "string"
-                  },
-                  "not": {
-                    "type": "string"
-                  },
-                  "gt": {
-                    "type": "number"
-                  },
-                  "lt": {
-                    "type": "number"
-                  },
-                  "contains": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "fact"
-                ],
-                "additionalProperties": false
-              }
-            ]
-          },
-          "retry": {
-            "type": "object",
-            "properties": {
-              "step": {
-                "type": "string"
-              },
-              "maxAttempts": {
-                "type": "number",
-                "exclusiveMinimum": true,
-                "minimum": 0,
-                "default": 2
-              },
-              "onMaxAttempts": {
-                "type": "string",
-                "enum": [
-                  "fail",
-                  "proceed",
-                  "human"
-                ],
-                "default": "fail"
-              }
-            },
-            "required": [
-              "step"
-            ],
-            "additionalProperties": false
-          },
-          "approval": {
-            "type": "boolean",
-            "default": false
-          },
-          "timeout": {
-            "type": "number",
-            "exclusiveMinimum": true,
-            "minimum": 0
-          }
+          "after": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+          "requires": { "type": "array", "items": { "type": "string" } },
+          "publishes": { "type": "array", "items": { "type": "string" } },
+          "context": { "$ref": "#/$defs/contextSpec" },
+          "when": { "anyOf": [{ "type": "string" }, { "type": "object", "properties": { "fact": { "type": "string" }, "equals": { "type": "string" }, "not": { "type": "string" }, "gt": { "type": "number" }, "lt": { "type": "number" }, "contains": { "type": "string" } }, "required": ["fact"], "additionalProperties": false }] },
+          "retry": { "type": "object", "properties": { "step": { "type": "string" }, "maxAttempts": { "type": "number", "exclusiveMinimum": true, "minimum": 0, "default": 2 }, "onMaxAttempts": { "type": "string", "enum": ["fail", "proceed", "human"], "default": "fail" } }, "required": ["step"], "additionalProperties": false },
+          "approval": { "type": "boolean", "default": false },
+          "approval_message": { "type": "string" },
+          "approval_timeout": { "type": "number" },
+          "ci_auto_approve": { "type": "boolean" },
+          "timeout": { "type": "number", "exclusiveMinimum": true, "minimum": 0 }
         },
         "additionalProperties": false
       }
     }
   },
-  "required": [
-    "name",
-    "flow"
-  ],
+  "required": ["name"],
   "additionalProperties": false,
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "modular-crew Team Definition",
-  "description": "Schema for team.yaml files used by the modular-crew CLI. See https://github.com/VictorGjn/modular-crew"
+  "description": "Schema for team.yaml files used by the modular-crew CLI.",
+  "$defs": {
+    "hookDefinition": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "run": { "type": "string" },
+        "on_fail": { "type": "string", "enum": ["abort", "continue"] },
+        "timeout": { "type": "number" }
+      },
+      "required": ["name", "run"],
+      "additionalProperties": false
+    },
+    "inlineAgent": {
+      "type": "object",
+      "properties": {
+        "model": { "type": "string" },
+        "system": { "type": "string" },
+        "tools": { "type": "array", "items": { "type": "string" } },
+        "maxTurns": { "type": "number", "exclusiveMinimum": true, "minimum": 0 },
+        "maxOutputTokens": { "type": "number", "exclusiveMinimum": true, "minimum": 0 },
+        "tokenBudget": { "type": "number", "exclusiveMinimum": true, "minimum": 0 },
+        "preset": { "type": "string" },
+        "is_coordinator": { "type": "boolean" },
+        "repo": { "type": "string" },
+        "base_ref": { "type": "string" }
+      },
+      "required": ["system"],
+      "additionalProperties": false
+    },
+    "contextSpec": {
+      "type": "object",
+      "properties": {
+        "depth": { "type": "string", "enum": ["full", "detail", "summary", "headlines", "mention"], "default": "detail" },
+        "sources": { "type": "array", "items": { "type": "string" } },
+        "tokenBudget": { "type": "number", "exclusiveMinimum": true, "minimum": 0 },
+        "adaptiveRetrieval": { "type": "boolean", "default": false },
+        "traversal": { "type": "object", "properties": { "followImports": { "type": "boolean", "default": true }, "followTests": { "type": "boolean", "default": false }, "followDocs": { "type": "boolean", "default": true } }, "additionalProperties": false }
+      },
+      "additionalProperties": false
+    }
+  }
 }
