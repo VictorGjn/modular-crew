@@ -14,7 +14,7 @@ import { estimateCost, DEPTH_TOKEN_RATIOS } from '../src/types.js';
 
 // Phase 2 imports
 import { CoordinatorEngine } from '../src/orchestrator/coordinatorEngine.js';
-import { InMemoryMailbox } from '../src/facts/mailbox.js';
+import { SQLiteMailbox } from '../src/facts/mailbox.js';
 import { loadResumeState, restoreFacts, getStepsToExecute } from '../src/orchestrator/resume.js';
 import { runHooks, type HooksConfig } from '../src/hooks/hookRunner.js';
 import { requestApproval, logApprovalEvent } from '../src/orchestrator/approvalGate.js';
@@ -22,6 +22,7 @@ import { summarizeStepOutput, saveStepSummary, initSummaryTable, loadStepSummari
 import { generateUltraPlan, shouldTriggerUltraplan } from '../src/orchestrator/ultraplan.js';
 import { runBackgroundTasks, type BackgroundTaskDef } from '../src/background/backgroundRunner.js';
 import { runConsolidation } from '../src/background/memoryConsolidator.js';
+import { prepareAgentWorktree } from '../src/worktree/worktreeManager.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = existsSync(resolve(__dirname, '..', 'package.json'))
@@ -37,7 +38,7 @@ program
   .description('Orchestrate multi-agent workflows from a single YAML file')
   .version(pkg.version, '-V, --version');
 
-// ── init ─────────────────────────────────────────────────
+// ── init ─────────────────────────────────────────────
 
 program
   .command('init')
@@ -295,7 +296,7 @@ program
     }
     const task = opts.task ?? 'Default task';
     const budgetMax = opts.budget ? parseFloat(opts.budget) : team.budget?.maxCost ?? Infinity;
-    const model = (team.defaults as any)?.model ?? 'claude-sonnet-4-20250514';
+    const model = team.defaults?.model ?? 'claude-sonnet-4-20250514';
     const factBus = new FactBus();
     const store = new RunStore('.crew/runs.db');
     const runId = store.createRun(resolved, team.name, task);
@@ -312,18 +313,23 @@ program
       process.exit(1);
     }
 
-    // Task 1: Coordinator mode detection
-    if ((team as any).mode === 'coordinator') {
-      const mailbox = new InMemoryMailbox();
+    // Task 1: Coordinator mode detection — now using typed fields
+    if (team.mode === 'coordinator') {
+      const mailbox = new SQLiteMailbox(store.db);
       const coordEngine = new CoordinatorEngine(mailbox, provider, factBus);
       const coordTeam = {
         name: team.name,
         task: opts.task ?? 'Default task',
-        config: { scratchpad: true, maxWorkers: 5, maxRounds: 10, ...((team as any).coordinator ?? {}) },
+        config: { scratchpad: true, maxWorkers: 5, maxRounds: 10, ...(team.coordinator ?? {}) },
         agents: Object.fromEntries(
-          Object.entries(team.flow).map(([id, step]) => {
-            const agent = typeof step.agent === 'object' ? step.agent : { system: '' };
-            return [id, { name: id, role: (agent as any).system ?? '', isCoordinator: !!(step as any).is_coordinator, system: (agent as any).system, model: (agent as any).model }];
+          Object.entries(team.agents ?? {}).map(([id, agentDef]) => {
+            return [id, {
+              name: id,
+              role: agentDef.system ?? agentDef.role ?? '',
+              isCoordinator: !!agentDef.is_coordinator,
+              system: agentDef.system,
+              model: agentDef.model,
+            }];
           })
         ),
       };
@@ -353,8 +359,8 @@ program
       validation.executionOrder = stepsToRun;
     }
 
-    // Task 3: Hooks config
-    const hooks: HooksConfig = (team as any).hooks ?? {};
+    // Task 3: Hooks config — now properly typed
+    const hooks: HooksConfig = team.hooks ?? {};
     if (hooks.before_run?.length) {
       const results = await runHooks('before_run', hooks.before_run, { runId });
       for (const r of results) {
@@ -380,14 +386,14 @@ program
         }
       }
 
-      // Task 4: Human-in-the-Loop approval gate
-      if ((step as any).approval) {
+      // Task 4: Human-in-the-Loop approval gate — now properly typed
+      if (step.approval) {
         const result = await requestApproval(stepId, {
           approval: true,
-          approvalMessage: (step as any).approval_message,
-          approvalTimeout: (step as any).approval_timeout,
+          approvalMessage: step.approval_message,
+          approvalTimeout: step.approval_timeout,
           ciMode: opts.ci,
-          ciAutoApprove: (step as any).ci_auto_approve,
+          ciAutoApprove: step.ci_auto_approve,
         });
         logApprovalEvent(store, { runId, stepId, result, timestamp: new Date().toISOString() });
         if (!result.approved) {
@@ -400,6 +406,21 @@ program
       // Task 3: Before-step hooks
       if (hooks.before_step?.length) {
         await runHooks('before_step', hooks.before_step, { runId, stepId });
+      }
+
+      // Worktree support: prepare worktree if agent has repo
+      let worktreeCwd: string | undefined;
+      if (step.agent && typeof step.agent === 'object' && step.agent.repo) {
+        const wt = prepareAgentWorktree({
+          repoUrl: step.agent.repo,
+          baseRef: step.agent.base_ref,
+          runId,
+          agentId: stepId,
+        });
+        worktreeCwd = wt.worktreePath;
+        if (opts.verbose) {
+          console.log(chalk.gray(`    Worktree: ${wt.worktreePath} (branch: ${wt.branch})`));
+        }
       }
 
       if (step.parallel) {
@@ -507,8 +528,8 @@ program
       console.log();
     }
 
-    // Task 7: Background tasks
-    const bgTasks: BackgroundTaskDef[] = Object.entries((team as any).background ?? {}).map(([name, def]: [string, any]) => ({
+    // Task 7: Background tasks — now properly typed
+    const bgTasks: BackgroundTaskDef[] = Object.entries(team.background ?? {}).map(([name, def]) => ({
       name, trigger: def.trigger ?? 'post-run', minInterval: def.min_interval ?? 3600, role: def.role ?? '', phases: def.phases ?? ['orient','gather','consolidate','prune'],
     }));
     if (bgTasks.length > 0) {
@@ -584,6 +605,13 @@ program
             const m = typeof branch.agent === 'object' ? branch.agent.model : undefined;
             console.log(`  ${chalk.green('▸')} ${chalk.bold(`${stepId}.${branchId}`)} ${chalk.gray(label)} ${m ? chalk.dim(`[${m}]`) : ''}`);
           }
+        }
+      }
+      // Also show coordinator-mode agents
+      if (team.agents) {
+        for (const [agentId, agentDef] of Object.entries(team.agents)) {
+          const coordLabel = agentDef.is_coordinator ? ' (coordinator)' : '';
+          console.log(`  ${chalk.green('▸')} ${chalk.bold(agentId)} ${chalk.gray(agentDef.role)}${coordLabel}`);
         }
       }
       console.log();
@@ -668,17 +696,26 @@ function extractFactValue(output: string, key: string): string {
     new RegExp(`\\[FACT:${key}\\]([\\s\\S]*?)\\[/FACT\\]`, 'i'),
     new RegExp(`${key}:\\s*(.+)`, 'i'),
   ];
-  for (const p of patterns) { const m = output.match(p); if (m?.[1]?.trim()) return m[1].trim(); }
-  return output.slice(0, 500).trim() || `(${key}: no structured output found)`;
+  for (const pattern of patterns) {
+    const match = output.match(pattern);
+    if (match?.[1]?.trim()) return match[1].trim();
+  }
+  return output.slice(0, 500);
 }
 
-function evaluateSimpleCondition(cond: any, factBus: FactBus): boolean {
-  if (typeof cond === 'object' && 'fact' in cond) {
-    const latest = factBus.getLatest(cond.fact);
+function evaluateSimpleCondition(when: any, factBus: FactBus): boolean {
+  if (typeof when === 'string') {
+    const latest = factBus.getLatest(when);
+    return latest !== undefined;
+  }
+  if (when.fact) {
+    const latest = factBus.getLatest(when.fact);
     if (!latest) return false;
-    if (cond.equals != null) return latest.value === cond.equals;
-    if (cond.not != null) return latest.value !== cond.not;
-    if (cond.contains != null) return latest.value.includes(cond.contains);
+    if (when.equals !== undefined) return latest.value === when.equals;
+    if (when.not !== undefined) return latest.value !== when.not;
+    if (when.contains !== undefined) return latest.value.includes(when.contains);
+    if (when.gt !== undefined) return parseFloat(latest.value) > when.gt;
+    if (when.lt !== undefined) return parseFloat(latest.value) < when.lt;
     return true;
   }
   return true;
