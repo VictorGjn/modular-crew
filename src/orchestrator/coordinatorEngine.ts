@@ -13,7 +13,8 @@ export class CoordinatorEngine {
     const cfg = { maxRounds:10, ...team.config };
     const coordName = Object.entries(team.agents).find(([_,a])=>a.isCoordinator)?.[0];
     if (!coordName) throw new Error('No coordinator agent found');
-    const workers = Object.keys(team.agents).filter(n=>n!==coordName);
+    const allWorkers = Object.keys(team.agents).filter(n=>n!==coordName);
+    const workers = allWorkers.slice(0, cfg.maxWorkers ?? allWorkers.length);
     const agents = new Map<string,ResolvedAgent>();
     for (const [n,d] of Object.entries(team.agents)) agents.set(n,{id:n,name:n,systemPrompt:d.system??('You are '+n+'. '+d.role),model:d.model??'mock-model',maxTurns:d.maxTurns??15});
     let round=0,done=false; const ca=agents.get(coordName)!;
