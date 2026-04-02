@@ -9,7 +9,7 @@ export interface WorktreeRequest { repoUrl: string; baseRef?: string; runId: str
 export interface WorktreeResult { worktreePath: string; branch: string; baseRef: string; }
 
 function safeSlug(v: string): string { return v.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''); }
-function parseRepoKey(url: string): string { const c = url.replace(/\.git$/, ''); const p = c.split('/'); return safeSlug(p[p.length-2]||'x')+'--'+safeSlug(p[p.length-1]||'x'); }
+function parseRepoKey(url: string): string { const c = url.replace(/\.git$/, ''); const p = c.split('/'); return safeSlug(p[p.length-2]||'x')+'--'+safeSlug(p[p.length-1]||'r'); }
 
 export function prepareAgentWorktree(req: WorktreeRequest): WorktreeResult {
   const bareRoot = join(ROOT, 'bare');
