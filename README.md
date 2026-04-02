@@ -228,6 +228,101 @@ modular-crew/
 
 The **context engine** (`src/context/`) is designed to be extractable as `@modular/context-engine` — use it standalone with any framework (CrewAI, LangGraph, etc.).
 
+
+## New Features (v0.2)
+
+### Coordinator Mode
+Switch from DAG-based execution to coordinator mode, where a lead agent dynamically dispatches tasks to workers:
+
+```yaml
+mode: coordinator
+coordinator:
+  scratchpad: true
+  max_workers: 5
+  max_rounds: 10
+agents:
+  lead:
+    role: "Decompose task and assign to workers"
+    is_coordinator: true
+  researcher:
+    role: "Research and gather information"
+  implementer:
+    role: "Implement assigned sub-tasks"
+```
+
+### Agent Presets
+Reusable agent configurations: `explore`, `plan`, `verify`, `implement`, `review`, `pm`. Reference them in your YAML:
+
+```yaml
+flow:
+  explore:
+    agent:
+      preset: explore
+```
+
+### Resume & Retry
+Recover from failures without re-running completed steps:
+
+```bash
+crew run --resume <run-id>   # Resume from where it stopped
+crew run --retry <run-id>    # Re-run only failed steps
+```
+
+Facts from completed steps are automatically restored.
+
+### Lifecycle Hooks
+Run shell commands at key points in the execution lifecycle:
+
+```yaml
+hooks:
+  before_run:
+    - name: setup
+      run: "mkdir -p /tmp/workspace"
+      on_fail: continue
+  after_run:
+    - name: cleanup
+      run: "rm -rf /tmp/workspace"
+```
+
+Supports `before_run`, `after_run`, `before_step`, `after_step` phases with `abort`/`continue` failure policies.
+
+### Budget Guard (Dual-Stop)
+Two independent stop conditions prevent runaway costs:
+
+```yaml
+budget:
+  maxCost: 2.00      # USD hard cap
+  maxTokens: 100000  # Token ceiling
+defaults:
+  maxTurns: 15       # Per-agent turn limit
+```
+
+Projected usage is checked **before** each turn — the agent never starts a turn it can't afford.
+
+### Permission Filter
+Denied tools never enter the agent's context window — the model can't hallucinate calls to tools it can't see:
+
+```yaml
+flow:
+  implement:
+    agent:
+      system: "Implement code changes"
+      deny_tools: [BashTool]
+      deny_prefixes: [mcp_]
+```
+
+### Mailbox (Agent-to-Agent Messaging)
+Direct point-to-point messaging between agents in coordinator mode, with read/unread tracking and conversation history.
+
+### Event Stream
+Structured SSE events documenting what context was injected, which tools matched, what was denied, and why execution stopped. Full transparency for debugging and trust.
+
+### Background Tasks
+Long-running background processes (memory consolidation, fact pruning) that run between steps with configurable triggers and intervals.
+
+### Ultraplan
+AI-generated execution plans: analyze the task and produce an optimized step sequence with cost estimates before committing any tokens.
+
 ## Requirements
 
 - Node.js 18+

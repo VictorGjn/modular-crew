@@ -21,6 +21,7 @@ import {
   type FlowStep,
   type Condition,
 } from '../types.js';
+import { resolvePreset } from '../presets/index.js';
 
 // ── Error Types ──────────────────────────────────────────────────────────────
 
@@ -124,7 +125,35 @@ export function parseTeamFile(filePath: string): TeamDefinition {
     );
   }
 
-  return result.data;
+  // Task 8: Resolve presets for agents
+  const parsed = result.data;
+  for (const [_stepId, step] of Object.entries(parsed.flow)) {
+    if (step.agent && typeof step.agent === 'object') {
+      const agentDef = step.agent as any;
+      if (agentDef.preset) {
+        try {
+          const preset = resolvePreset(agentDef.preset, { role: agentDef.role, model: agentDef.model });
+          agentDef.system = agentDef.system ?? preset.system;
+          agentDef.role = preset.role;
+          agentDef.maxTurns = agentDef.maxTurns ?? preset.maxTurns;
+        } catch { /* unknown preset */ }
+      }
+    }
+    if (step.parallel) {
+      for (const [_bId, br] of Object.entries(step.parallel)) {
+        const ba = br.agent as any;
+        if (ba && typeof ba === 'object' && ba.preset) {
+          try {
+            const preset = resolvePreset(ba.preset, { role: ba.role, model: ba.model });
+            ba.system = ba.system ?? preset.system;
+            ba.role = preset.role;
+            ba.maxTurns = ba.maxTurns ?? preset.maxTurns;
+          } catch { /* unknown preset */ }
+        }
+      }
+    }
+  }
+  return parsed;
 }
 
 // ── Validate ─────────────────────────────────────────────────────────────────

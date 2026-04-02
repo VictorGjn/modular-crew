@@ -7,8 +7,7 @@
  * DB location: .crew/runs.db in project directory (configurable via constructor).
  */
 
-import Database from 'better-sqlite3';
-import type BetterSqlite3 from 'better-sqlite3';
+import Database from './compat-db.js';
 import { ulid } from 'ulid';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -89,8 +88,8 @@ const STEP_MUTABLE = new Set([
 // ── RunStore ─────────────────────────────────────────────────────────────────
 
 export class RunStore {
-  readonly db: BetterSqlite3.Database;
-  private _stmtCache = new Map<string, BetterSqlite3.Statement>();
+  readonly db: any;
+  private _stmtCache = new Map<string, any>();
 
   constructor(dbPath: string = DEFAULT_DB_PATH) {
     mkdirSync(dirname(dbPath), { recursive: true });

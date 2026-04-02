@@ -10,6 +10,7 @@
  */
 
 import { z } from 'zod';
+import type { HookDefinition } from './hooks/hookRunner.js';
 
 // ── Depth Levels (from patchbay's 5-level system) ────────────────────────────
 
@@ -49,6 +50,10 @@ export const InlineAgent = z.object({
   maxTurns: z.number().positive().optional(),
   maxOutputTokens: z.number().positive().optional(),
   tokenBudget: z.number().positive().optional(),
+  preset: z.string().optional(),                   // agent preset name
+  is_coordinator: z.boolean().optional(),          // marks as coordinator agent
+  repo: z.string().optional(),                     // git repo URL for worktree
+  base_ref: z.string().optional(),                 // base branch for worktree
 });
 export type InlineAgent = z.infer<typeof InlineAgent>;
 
@@ -74,6 +79,25 @@ export const Condition = z.union([
   StructuredCondition,                             // structured condition
 ]);
 export type Condition = z.infer<typeof Condition>;
+
+// ── Hook Definition Schema ───────────────────────────────────────────────────
+
+const HookDefinitionSchema = z.object({
+  name: z.string(),
+  run: z.string(),
+  on_fail: z.enum(['abort', 'continue']).optional(),
+  timeout: z.number().optional(),
+});
+
+// ── Background Task Definition Schema ────────────────────────────────────────
+
+const BackgroundTaskSchema = z.object({
+  name: z.string(),
+  trigger: z.string(),
+  min_interval: z.number(),
+  role: z.string(),
+  phases: z.array(z.string()),
+});
 
 // ── Flow Steps ───────────────────────────────────────────────────────────────
 
@@ -112,6 +136,9 @@ export const FlowStep = z.object({
 
   // Human-in-the-loop
   approval: z.boolean().default(false),
+  approval_message: z.string().optional(),
+  approval_timeout: z.number().positive().optional(),
+  ci_auto_approve: z.boolean().optional(),
 
   // Timeouts
   timeout: z.number().positive().optional(),       // ms, per step
@@ -134,6 +161,27 @@ export const TeamDefinition = z.object({
   name: z.string(),
   description: z.string().optional(),
 
+  // Execution mode
+  mode: z.enum(['dag', 'coordinator']).optional(),
+
+  // Coordinator config (for mode: coordinator)
+  coordinator: z.object({
+    scratchpad: z.boolean().optional(),
+    max_workers: z.number().optional(),
+    max_rounds: z.number().optional(),
+  }).optional(),
+
+  // Lifecycle hooks
+  hooks: z.object({
+    before_run: z.array(HookDefinitionSchema).optional(),
+    after_run: z.array(HookDefinitionSchema).optional(),
+    before_step: z.array(HookDefinitionSchema).optional(),
+    after_step: z.array(HookDefinitionSchema).optional(),
+  }).optional(),
+
+  // Background tasks
+  background: z.record(z.string(), BackgroundTaskSchema).optional(),
+
   // Studio connection (optional — not required for inline agents)
   studio: z.object({
     url: z.string().url(),
@@ -153,8 +201,19 @@ export const TeamDefinition = z.object({
   // Budget controls
   budget: Budget.optional(),
 
+  // Coordinator-mode agents (flat map, not flow)
+  agents: z.record(z.string(), z.object({
+    role: z.string(),
+    is_coordinator: z.boolean().optional(),
+    system: z.string().optional(),
+    model: z.string().optional(),
+    preset: z.string().optional(),
+    repo: z.string().optional(),
+    base_ref: z.string().optional(),
+  })).optional(),
+
   // The flow (unified: agents + topology in one place)
-  flow: z.record(z.string(), FlowStep),
+  flow: z.record(z.string(), FlowStep).default({}),
 });
 export type TeamDefinition = z.infer<typeof TeamDefinition>;
 

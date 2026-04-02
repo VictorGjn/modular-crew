@@ -1,0 +1,23 @@
+name: coordinator-crew
+description: Coordinator agent dispatches to workers
+version: 1
+mode: coordinator
+coordinator:
+  scratchpad: true
+  max_workers: 5
+  max_rounds: 10
+agents:
+  lead:
+    role: "Decompose task and assign to workers"
+    is_coordinator: true
+  researcher:
+    role: "Research and gather information"
+  implementer:
+    role: "Implement assigned sub-tasks"
+  reviewer:
+    role: "Review work for quality"
+defaults:
+  model: claude-sonnet-4-20250514
+  maxTurns: 15
+budget:
+  maxCost: 5.00
