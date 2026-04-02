@@ -1,0 +1,63 @@
+name: product-crew
+description: Full product development pipeline
+version: 1
+defaults:
+  model: claude-sonnet-4-20250514
+  maxTurns: 15
+budget:
+  maxCost: 10.00
+hooks:
+  before_run:
+    - name: setup
+      run: "mkdir -p /tmp/crew-workspace"
+      on_fail: continue
+  after_run:
+    - name: cleanup
+      run: "rm -rf /tmp/crew-workspace"
+      on_fail: continue
+flow:
+  spec:
+    agent:
+      system: "Product manager: prioritize and write specs"
+    publishes: [product_spec, acceptance_criteria]
+  explore:
+    agent:
+      system: "Explore codebase structure"
+    after: spec
+    requires: [product_spec]
+    publishes: [codebase_map, relevant_files]
+    context:
+      depth: summary
+  plan:
+    agent:
+      system: "Create implementation plan"
+    after: explore
+    requires: [product_spec, codebase_map]
+    publishes: [implementation_plan]
+  implement:
+    agent:
+      system: "Implement code changes"
+    after: plan
+    requires: [implementation_plan, relevant_files]
+    publishes: [implementation_output, code_changes]
+    context:
+      depth: full
+  verify:
+    agent:
+      system: "Verify implementation"
+    after: implement
+    requires: [acceptance_criteria, implementation_output]
+    publishes: [verification_result]
+    retry:
+      step: implement
+      maxAttempts: 3
+      onMaxAttempts: human
+  review:
+    agent:
+      system: "Review code quality"
+    after: verify
+    when:
+      fact: verification_result
+      equals: "pass"
+    requires: [code_changes]
+    publishes: [review_feedback]
