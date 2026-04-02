@@ -2,7 +2,7 @@
  * Integration test: Hooks lifecycle
  */
 import { describe, test, expect } from 'bun:test';
-import { runHooks, type HookDefinition, type HookContext } from '../src/hooks/hookRunner.js';
+import { runHooks, type HookDefinition, type HookContext } from '../../src/hooks/hookRunner.js';
 
 describe('Hooks Run Integration', () => {
   test('before_run hooks execute and return results', async () => {

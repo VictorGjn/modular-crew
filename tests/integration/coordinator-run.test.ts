@@ -4,10 +4,10 @@
  * the CoordinatorEngine is used instead of the DAG loop.
  */
 import { describe, test, expect } from 'bun:test';
-import { CoordinatorEngine } from '../src/orchestrator/coordinatorEngine.js';
-import { InMemoryMailbox } from '../src/facts/mailbox.js';
-import { MockProvider } from '../src/studio/mock.js';
-import { FactBus } from '../src/facts/fact-bus.js';
+import { CoordinatorEngine } from '../../src/orchestrator/coordinatorEngine.js';
+import { InMemoryMailbox } from '../../src/facts/mailbox.js';
+import { MockProvider } from '../../src/studio/mock.js';
+import { FactBus } from '../../src/facts/fact-bus.js';
 
 describe('Coordinator Run Integration', () => {
   test('detects coordinator mode and runs via CoordinatorEngine', async () => {

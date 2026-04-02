@@ -2,9 +2,9 @@
  * Integration test: Resume/Retry run
  */
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { RunStore } from '../src/store/run-store.js';
-import { FactBus } from '../src/facts/fact-bus.js';
-import { loadResumeState, restoreFacts, getStepsToExecute } from '../src/orchestrator/resume.js';
+import { RunStore } from '../../src/store/run-store.js';
+import { FactBus } from '../../src/facts/fact-bus.js';
+import { loadResumeState, restoreFacts, getStepsToExecute } from '../../src/orchestrator/resume.js';
 import { unlinkSync, mkdirSync } from 'node:fs';
 
 const TEST_DB = '/tmp/.crew-test-resume/runs.db';
