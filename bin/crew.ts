@@ -321,7 +321,11 @@ program
       const coordTeam = {
         name: team.name,
         task: opts.task ?? 'Default task',
-        config: { scratchpad: true, maxWorkers: 5, maxRounds: 10, ...(team.coordinator ?? {}) },
+        config: {
+          scratchpad: team.coordinator?.scratchpad ?? true,
+          maxWorkers: team.coordinator?.max_workers ?? 5,
+          maxRounds: team.coordinator?.max_rounds ?? 10,
+        },
         agents: Object.fromEntries(
           Object.entries(team.agents ?? {}).map(([id, agentDef]) => {
             return [id, {
@@ -366,7 +370,7 @@ program
       const results = await runHooks('before_run', hooks.before_run, { runId });
       for (const r of results) {
         if (!r.success && !r.aborted) console.log(chalk.yellow(`  Hook ${r.name} failed: ${r.stderr}`));
-        if (r.aborted) { console.log(chalk.red('  Run aborted by hook')); process.exit(1); }
+        if (r.aborted || !r.success) { console.log(chalk.red(`  Run aborted by hook ${r.name}`)); process.exit(1); }
       }
     }
 
@@ -406,7 +410,14 @@ program
 
       // Task 3: Before-step hooks
       if (hooks.before_step?.length) {
-        await runHooks('before_step', hooks.before_step, { runId, stepId });
+        const stepHookResults = await runHooks('before_step', hooks.before_step, { runId, stepId });
+        const stepAborted = stepHookResults.some(r => r.aborted || !r.success);
+        if (stepAborted) {
+          const failedHook = stepHookResults.find(r => !r.success);
+          console.log(chalk.yellow(`  Step ${stepId} blocked by hook ${failedHook?.name}`));
+          store.updateStep(runId, stepId, { status: 'skipped', duration_ms: Date.now() - start });
+          continue;
+        }
       }
 
       // Worktree support: prepare worktree if agent has repo
