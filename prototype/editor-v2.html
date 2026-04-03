@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MODULAR crew — Web Editor</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
+<link rel="stylesheet" href="../tokens/tokens.css">
 <style>
 /* ═══════════════════════════════════════════════════════════════════
    MODULAR CREW — Design System (OKLCH)
@@ -13,89 +14,21 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* ── Shared accent & semantic ── */
-  --accent: oklch(0.65 0.25 30);
-  --accent-hover: oklch(0.58 0.22 30);
-  --accent-glow: oklch(0.65 0.25 30 / 0.25);
-  --success: oklch(0.85 0.28 155);
-  --success-bg: oklch(0.85 0.28 155 / 0.07);
-  --error: oklch(0.60 0.25 20);
-  --error-bg: oklch(0.60 0.25 20 / 0.08);
-  --warning: oklch(0.78 0.18 80);
-  --warning-bg: oklch(0.78 0.18 80 / 0.08);
-  --info: oklch(0.60 0.12 245);
-  --info-bg: oklch(0.60 0.12 245 / 0.08);
-  /* Semantic domains */
-  --knowledge: oklch(0.60 0.12 245);
-  --discovery: oklch(0.72 0.19 155);
-  --intel: oklch(0.68 0.16 60);
-  --agents: oklch(0.55 0.18 310);
-  /* ── Sizing ── */
-  --radius: 8px;
-  --radius-sm: 6px;
-  --radius-lg: 12px;
-  --radius-full: 9999px;
-  --topbar-h: 48px;
+  /* ── Component-specific sizing ── */
   --editor-w: 340px;
   --bottom-collapsed: 38px;
   --bottom-expanded: 260px;
-  /* ── Transitions ── */
-  --t-fast: 120ms ease;
-  --t-base: 150ms ease;
-  --t-slide: 250ms cubic-bezier(0.4,0,0.2,1);
 }
 
-/* ── Dark Theme (Default) ── */
-[data-theme="dark"] {
-  --bg: oklch(0.15 0.005 280);
-  --surface: oklch(0.20 0.005 280 / 0.9);
-  --surface-opaque: oklch(0.20 0.005 280);
-  --surface-elevated: oklch(0.23 0.005 280);
-  --surface-hover: oklch(0.21 0.005 280);
-  --border: oklch(0.26 0.005 280);
-  --border-subtle: oklch(0.22 0.005 280);
-  --text-primary: oklch(0.95 0 0);
-  --text-secondary: oklch(0.60 0 0);
-  --text-muted: oklch(0.45 0 0);
-  --input-bg: oklch(0.16 0.005 280);
-  --badge-bg: oklch(0.23 0.005 280);
-  --dot-grid: oklch(0.22 0.005 280);
-  --scrollbar-track: oklch(0.18 0.005 280);
-  --scrollbar-thumb: oklch(0.30 0.005 280);
-  --shadow-card: 0 2px 8px oklch(0 0 0 / 0.3);
-  --overlay: oklch(0 0 0 / 0.4);
-  color-scheme: dark;
-}
 
-/* ── Light Theme ── */
-[data-theme="light"] {
-  --bg: oklch(0.95 0.005 260);
-  --surface: oklch(1.0 0 0 / 0.95);
-  --surface-opaque: oklch(1.0 0 0);
-  --surface-elevated: oklch(0.94 0.005 260);
-  --surface-hover: oklch(0.97 0.005 260);
-  --border: oklch(0.83 0.005 260);
-  --border-subtle: oklch(0.88 0.005 260);
-  --text-primary: oklch(0.18 0.01 280);
-  --text-secondary: oklch(0.35 0.01 280);
-  --text-muted: oklch(0.45 0.01 280);
-  --input-bg: oklch(0.97 0.005 260);
-  --badge-bg: oklch(0.91 0.005 260);
-  --dot-grid: oklch(0.85 0.005 260);
-  --scrollbar-track: oklch(0.93 0.005 260);
-  --scrollbar-thumb: oklch(0.78 0.005 260);
-  --shadow-card: 0 2px 8px oklch(0 0 0 / 0.08);
-  --overlay: oklch(0 0 0 / 0.18);
-  color-scheme: light;
-}
 
 /* ═══════════════════════════════════════════════════════════════════
    BASE
    ═══════════════════════════════════════════════════════════════════ */
 html {
-  font-family: 'Geist Sans', system-ui, -apple-system, sans-serif;
-  background: var(--bg);
-  color: var(--text-primary);
+  font-family: 'Geist', system-ui, -apple-system, sans-serif;
+  background: var(--m-bg);
+  color: var(--m-text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -113,15 +46,15 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
 
 /* Scrollbar: 6px, themed */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--scrollbar-track); }
-::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+::-webkit-scrollbar-track { background: var(--m-scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--m-scrollbar-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--m-text-muted); }
 
 /* Focus-visible: 2px accent, 2px offset */
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--m-accent);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--m-radius-sm);
 }
 
 /* Screen-reader only */
@@ -132,13 +65,13 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
    UPPERCASE, Geist Sans, font-semibold, tracking-wide, 28-32px h
    ═══════════════════════════════════════════════════════════════════ */
 .btn {
-  font-family: 'Geist Sans', system-ui, sans-serif;
+  font-family: 'Geist', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   border: 1px solid transparent;
-  border-radius: var(--radius);
+  border-radius: var(--m-radius);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -149,26 +82,26 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
   white-space: nowrap;
   user-select: none;
   min-width: 44px;
-  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast), box-shadow var(--t-fast);
+  transition: background var(--m-t-fast), border-color var(--m-t-fast), color var(--m-t-fast), box-shadow var(--m-t-fast);
 }
 .btn svg { width: 14px; height: 14px; flex-shrink: 0; pointer-events: none; }
-.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-.btn-secondary { background: var(--surface-elevated); color: var(--text-secondary); border-color: var(--border); }
-.btn-secondary:hover { background: var(--surface-hover); color: var(--text-primary); border-color: var(--text-muted); }
-.btn-ghost { background: transparent; color: var(--text-secondary); border-color: var(--border); }
-.btn-ghost:hover { background: var(--surface-elevated); color: var(--text-primary); border-color: var(--text-muted); }
+.btn-primary { background: var(--m-accent); color: #fff; border-color: var(--m-accent); }
+.btn-primary:hover { background: var(--m-accent-hover); border-color: var(--m-accent-hover); }
+.btn-secondary { background: var(--m-surface-elevated); color: var(--m-text-secondary); border-color: var(--m-border); }
+.btn-secondary:hover { background: var(--m-surface-hover); color: var(--m-text-primary); border-color: var(--m-text-muted); }
+.btn-ghost { background: transparent; color: var(--m-text-secondary); border-color: var(--m-border); }
+.btn-ghost:hover { background: var(--m-surface-elevated); color: var(--m-text-primary); border-color: var(--m-text-muted); }
 
 /* ═══════════════════════════════════════════════════════════════════
    COMPONENT: Badges — UPPERCASE, Geist Sans, pill, 10px
    ═══════════════════════════════════════════════════════════════════ */
 .badge {
-  font-family: 'Geist Sans', system-ui, sans-serif;
+  font-family: 'Geist', system-ui, sans-serif;
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  border-radius: var(--radius-full);
+  border-radius: var(--m-radius-full);
   padding: 2px 8px;
   display: inline-flex;
   align-items: center;
@@ -177,24 +110,24 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
   user-select: none;
   line-height: 1.4;
 }
-.badge-neutral { background: var(--badge-bg); color: var(--text-secondary); }
-.badge-success { background: var(--success-bg); color: var(--success); }
-.badge-warning { background: var(--warning-bg); color: var(--warning); }
-.badge-error { background: var(--error-bg); color: var(--error); }
-.badge-info { background: var(--info-bg); color: var(--info); }
-.badge-accent { background: oklch(0.65 0.25 30 / 0.12); color: var(--accent); }
+.badge-neutral { background: var(--m-badge-bg); color: var(--m-text-secondary); }
+.badge-success { background: var(--m-success-bg); color: var(--m-success); }
+.badge-warning { background: var(--m-warning-bg); color: var(--m-warning); }
+.badge-error { background: var(--m-error-bg); color: var(--m-error); }
+.badge-info { background: var(--m-info-bg); color: var(--m-info); }
+.badge-accent { background: oklch(0.65 0.25 30 / 0.12); color: var(--m-accent); }
 
 /* ═══════════════════════════════════════════════════════════════════
    COMPONENT: Chip (fact pill)
    ═══════════════════════════════════════════════════════════════════ */
 .chip {
-  font-family: 'Geist Sans', system-ui, sans-serif;
+  font-family: 'Geist', system-ui, sans-serif;
   font-size: 11px;
   text-transform: lowercase;
   letter-spacing: 0.02em;
-  background: var(--badge-bg);
-  color: var(--text-secondary);
-  border-radius: var(--radius-full);
+  background: var(--m-badge-bg);
+  color: var(--m-text-secondary);
+  border-radius: var(--m-radius-full);
   padding: 2px 8px;
   display: inline-flex;
   align-items: center;
@@ -208,19 +141,19 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
    COMPONENT: Inputs, Textareas, Selects
    ═══════════════════════════════════════════════════════════════════ */
 .input, .textarea, .select {
-  font-family: 'Geist Sans', sans-serif;
+  font-family: 'Geist', sans-serif;
   font-size: 13px;
-  color: var(--text-primary);
-  background: var(--input-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  color: var(--m-text-primary);
+  background: var(--m-input-bg);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius);
   padding: 6px 10px;
   width: 100%;
   outline: none;
-  transition: border-color var(--t-fast);
+  transition: border-color var(--m-t-fast);
 }
-.input:focus, .textarea:focus, .select:focus { border-color: var(--accent); }
-.textarea { resize: vertical; min-height: 72px; line-height: 1.5; font-family: 'Geist Sans', system-ui, sans-serif; font-size: 13px; }
+.input:focus, .textarea:focus, .select:focus { border-color: var(--m-accent); }
+.textarea { resize: vertical; min-height: 72px; line-height: 1.5; font-family: 'Geist', system-ui, sans-serif; font-size: 13px; }
 .select {
   appearance: none;
   cursor: pointer;
@@ -230,12 +163,12 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
   padding-right: 28px;
 }
 .label {
-  font-family: 'Geist Sans', system-ui, sans-serif;
+  font-family: 'Geist', system-ui, sans-serif;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-muted);
+  color: var(--m-text-muted);
   margin-bottom: 4px;
   display: block;
 }
@@ -247,10 +180,10 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
 
 /* ── Top Bar ── 48px, fixed */
 .topbar {
-  height: var(--topbar-h);
-  min-height: var(--topbar-h);
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  height: var(--m-topbar-h);
+  min-height: var(--m-topbar-h);
+  background: var(--m-surface);
+  border-bottom: 1px solid var(--m-border);
   display: flex;
   align-items: center;
   padding: 0 16px;
@@ -264,46 +197,46 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
 .topbar-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
 .wordmark {
-  font-family: 'Geist Sans', system-ui, sans-serif;
+  font-family: 'Geist', system-ui, sans-serif;
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-primary);
+  color: var(--m-text-primary);
   user-select: none;
 }
 .crew-badge {
-  font-family: 'Geist Sans', system-ui, sans-serif;
+  font-family: 'Geist', system-ui, sans-serif;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: var(--accent);
+  color: var(--m-accent);
   background: oklch(0.65 0.25 30 / 0.10);
-  border-radius: var(--radius-full);
+  border-radius: var(--m-radius-full);
   padding: 2px 8px;
 }
 
 .team-name-input {
-  font-family: 'Geist Sans', system-ui, sans-serif;
+  font-family: 'Geist', system-ui, sans-serif;
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--m-text-primary);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--radius);
+  border-radius: var(--m-radius);
   padding: 3px 8px;
   text-align: center;
   outline: none;
   cursor: text;
   min-width: 80px;
-  transition: border-color var(--t-fast);
+  transition: border-color var(--m-t-fast);
 }
-.team-name-input:hover { border-color: var(--border-subtle); }
-.team-name-input:focus { border-color: var(--accent); }
+.team-name-input:hover { border-color: var(--m-border-subtle); }
+.team-name-input:focus { border-color: var(--m-accent); }
 
 .team-desc {
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--m-text-muted);
   max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -313,21 +246,21 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
 
 .icon-btn {
   width: 32px; height: 32px;
-  border-radius: var(--radius);
+  border-radius: var(--m-radius);
   background: transparent; border: none;
-  color: var(--text-secondary);
+  color: var(--m-text-secondary);
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: background var(--t-fast), color var(--t-fast);
+  transition: background var(--m-t-fast), color var(--m-t-fast);
   flex-shrink: 0;
   /* 44px touch target via padding */
   padding: 6px;
   min-width: 44px; min-height: 44px;
 }
-.icon-btn:hover { background: var(--surface-elevated); color: var(--text-primary); }
+.icon-btn:hover { background: var(--m-surface-elevated); color: var(--m-text-primary); }
 .icon-btn svg { width: 16px; height: 16px; }
 
-.topbar-sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+.topbar-sep { width: 1px; height: 20px; background: var(--m-border); flex-shrink: 0; }
 
 /* ── Main Area ── */
 .main { flex: 1; display: flex; overflow: hidden; position: relative; }
@@ -337,8 +270,8 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
 .canvas {
   width: 100%; height: 100%;
   position: relative;
-  background-color: var(--bg);
-  background-image: radial-gradient(circle, var(--dot-grid) 1px, transparent 1px);
+  background-color: var(--m-bg);
+  background-image: radial-gradient(circle, var(--m-dot-grid) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 .canvas-edges { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
@@ -353,33 +286,33 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
   transition: transform 80ms ease;
 }
 .node:hover { transform: translateY(-1px); }
-.node:hover .node-card { border-color: var(--text-muted); }
+.node:hover .node-card { border-color: var(--m-text-muted); }
 
 .node-card {
-  background: var(--surface-opaque);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-lg);
+  background: var(--m-surface-opaque);
+  border: 1.5px solid var(--m-border);
+  border-radius: var(--m-radius-lg);
   padding: 12px 14px;
-  box-shadow: var(--shadow-card);
-  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+  box-shadow: var(--m-shadow-card);
+  transition: border-color var(--m-t-fast), box-shadow var(--m-t-fast);
 }
 .node-card.selected {
-  border-color: var(--accent);
-  box-shadow: var(--shadow-card), 0 0 0 1px var(--accent), 0 0 20px var(--accent-glow);
+  border-color: var(--m-accent);
+  box-shadow: var(--m-shadow-card), 0 0 0 1px var(--m-accent), 0 0 20px var(--m-accent-glow);
 }
 
 .node-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.node-name { font-weight: 600; font-size: 14px; color: var(--text-primary); }
+.node-name { font-weight: 600; font-size: 14px; color: var(--m-text-primary); }
 .node-meta { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
 .node-publishes { display: flex; flex-wrap: wrap; gap: 4px; }
 
 /* ── Editor Panel ── */
 .editor-overlay {
   position: fixed; inset: 0;
-  background: var(--overlay);
+  background: var(--m-overlay);
   z-index: 90;
   opacity: 0; pointer-events: none;
-  transition: opacity var(--t-slide);
+  transition: opacity var(--m-t-slide);
 }
 .editor-overlay.open { opacity: 1; pointer-events: auto; }
 
@@ -387,12 +320,12 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
   position: fixed; top: 0; right: 0; bottom: 0;
   width: var(--editor-w);
   max-width: 90vw;
-  background: var(--surface-opaque);
-  border-left: 1px solid var(--border);
+  background: var(--m-surface-opaque);
+  border-left: 1px solid var(--m-border);
   z-index: 100;
   display: flex; flex-direction: column;
   transform: translateX(100%);
-  transition: transform var(--t-slide);
+  transition: transform var(--m-t-slide);
   box-shadow: -4px 0 24px oklch(0 0 0 / 0.15);
 }
 .editor-panel.open { transform: translateX(0); }
@@ -400,7 +333,7 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
 .editor-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 16px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--m-border);
   flex-shrink: 0;
 }
 .editor-header h2 { font-size: 14px; font-weight: 600; }
@@ -409,13 +342,13 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
 
 .editor-footer {
   padding: 12px 16px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--m-border);
   display: flex; gap: 8px; justify-content: flex-end;
   flex-shrink: 0;
 }
 
 /* ── Sections (collapsible) ── */
-.section { border-bottom: 1px solid var(--border-subtle); }
+.section { border-bottom: 1px solid var(--m-border-subtle); }
 .section:last-child { border-bottom: none; }
 
 .section-toggle {
@@ -423,18 +356,18 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 16px;
   background: transparent; border: none;
-  color: var(--text-secondary);
-  font-family: 'Geist Sans', system-ui, sans-serif;
+  color: var(--m-text-secondary);
+  font-family: 'Geist', system-ui, sans-serif;
   font-size: 11px; font-weight: 600;
   text-transform: uppercase; letter-spacing: 0.06em;
   cursor: pointer;
-  transition: background var(--t-fast), color var(--t-fast);
+  transition: background var(--m-t-fast), color var(--m-t-fast);
   min-height: 44px;
 }
-.section-toggle:hover { background: var(--surface-hover); color: var(--text-primary); }
+.section-toggle:hover { background: var(--m-surface-hover); color: var(--m-text-primary); }
 .section-toggle svg {
   width: 12px; height: 12px;
-  transition: transform var(--t-fast);
+  transition: transform var(--m-t-fast);
   flex-shrink: 0;
 }
 .section-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
@@ -447,12 +380,12 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
 
 /* ── Bottom Panel ── */
 .bottom-panel {
-  background: var(--surface-opaque);
-  border-top: 1px solid var(--border);
+  background: var(--m-surface-opaque);
+  border-top: 1px solid var(--m-border);
   flex-shrink: 0;
   display: flex; flex-direction: column;
   height: var(--bottom-collapsed);
-  transition: height var(--t-slide);
+  transition: height var(--m-t-slide);
   z-index: 30;
 }
 .bottom-panel.expanded { height: var(--bottom-expanded); }
@@ -465,34 +398,34 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
   user-select: none;
 }
 .bottom-tab {
-  font-family: 'Geist Sans', system-ui, sans-serif;
+  font-family: 'Geist', system-ui, sans-serif;
   font-size: 11px; font-weight: 600;
   text-transform: uppercase; letter-spacing: 0.05em;
-  color: var(--text-muted);
+  color: var(--m-text-muted);
   padding: 4px 10px;
-  border-radius: var(--radius);
+  border-radius: var(--m-radius);
   cursor: pointer;
   background: transparent; border: none;
-  transition: color var(--t-fast), background var(--t-fast);
+  transition: color var(--m-t-fast), background var(--m-t-fast);
   min-height: 28px;
   display: flex; align-items: center;
 }
-.bottom-tab:hover { color: var(--text-secondary); background: var(--surface-hover); }
-.bottom-tab.active { color: var(--text-primary); background: var(--surface-elevated); }
+.bottom-tab:hover { color: var(--m-text-secondary); background: var(--m-surface-hover); }
+.bottom-tab.active { color: var(--m-text-primary); background: var(--m-surface-elevated); }
 
 .bottom-expand {
   margin-left: auto;
   width: 28px; height: 28px;
   display: flex; align-items: center; justify-content: center;
   background: transparent; border: none;
-  color: var(--text-muted); cursor: pointer;
-  border-radius: var(--radius);
-  transition: background var(--t-fast), color var(--t-fast);
+  color: var(--m-text-muted); cursor: pointer;
+  border-radius: var(--m-radius);
+  transition: background var(--m-t-fast), color var(--m-t-fast);
   min-width: 44px; min-height: 44px;
   padding: 8px;
 }
-.bottom-expand:hover { background: var(--surface-elevated); color: var(--text-primary); }
-.bottom-expand svg { width: 14px; height: 14px; transition: transform var(--t-fast); }
+.bottom-expand:hover { background: var(--m-surface-elevated); color: var(--m-text-primary); }
+.bottom-expand svg { width: 14px; height: 14px; transition: transform var(--m-t-fast); }
 .bottom-panel.expanded .bottom-expand svg { transform: rotate(180deg); }
 
 .bottom-body { flex: 1; overflow: auto; padding: 12px 16px; display: none; }
@@ -501,37 +434,37 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
 /* ── Tables ── */
 .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .data-table th {
-  font-family: 'Geist Sans', system-ui, sans-serif;
+  font-family: 'Geist', system-ui, sans-serif;
   font-size: 10px; font-weight: 600;
   text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--text-muted);
+  color: var(--m-text-muted);
   text-align: left;
   padding: 6px 10px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--m-border);
 }
 .data-table td {
   padding: 5px 10px;
-  border-bottom: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
+  border-bottom: 1px solid var(--m-border-subtle);
+  color: var(--m-text-secondary);
 }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table .total-row td {
   font-weight: 600;
-  color: var(--text-primary);
-  border-top: 1px solid var(--border);
+  color: var(--m-text-primary);
+  border-top: 1px solid var(--m-border);
   border-bottom: none;
 }
-.data-table .mono { font-family: 'Geist Sans', system-ui, sans-serif; }
-.data-table .strong { color: var(--text-primary); }
+.data-table .mono { font-family: 'Geist', system-ui, sans-serif; }
+.data-table .strong { color: var(--m-text-primary); }
 
 /* Depth bars */
 .depth-bar-cell { min-width: 110px; }
 .depth-bar-wrap { display: flex; align-items: center; gap: 6px; }
 .depth-bar { height: 4px; border-radius: 2px; }
-.depth-full { background: var(--error); }
-.depth-detail { background: var(--warning); }
-.depth-summary { background: var(--discovery); }
-.depth-headlines { background: var(--info); }
+.depth-full { background: var(--m-error); }
+.depth-detail { background: var(--m-warning); }
+.depth-summary { background: var(--m-discovery); }
+.depth-headlines { background: var(--m-info); }
 
 /* Savings */
 .savings-row {
@@ -540,9 +473,9 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
   font-size: 11px;
 }
 .savings-num {
-  font-family: 'Geist Sans', system-ui, sans-serif;
+  font-family: 'Geist', system-ui, sans-serif;
   font-weight: 600;
-  color: var(--success);
+  color: var(--m-success);
   font-size: 13px;
 }
 
@@ -554,22 +487,22 @@ html *:not(svg):not(path):not(line):not(circle):not(polyline):not(polygon):not(t
   margin-right: 5px;
   vertical-align: middle;
 }
-.status-dot.published { background: var(--success); }
-.status-dot.pending { background: var(--warning); }
-.status-dot.consumed { background: var(--info); }
+.status-dot.published { background: var(--m-success); }
+.status-dot.pending { background: var(--m-warning); }
+.status-dot.consumed { background: var(--m-info); }
 
 /* ── SVG Edges ── */
 .edge-line { fill: none; stroke-width: 1.5; }
-.edge-solid { stroke: var(--border); }
-.edge-dashed { stroke: var(--text-muted); stroke-dasharray: 6 4; }
+.edge-solid { stroke: var(--m-border); }
+.edge-dashed { stroke: var(--m-text-muted); stroke-dasharray: 6 4; }
 .edge-label {
-  font-family: 'Geist Sans', system-ui, sans-serif;
+  font-family: 'Geist', system-ui, sans-serif;
   font-size: 10px;
-  fill: var(--text-muted);
+  fill: var(--m-text-muted);
   text-anchor: middle;
 }
-.edge-arrow { fill: var(--border); }
-.edge-dashed-arrow { fill: var(--text-muted); }
+.edge-arrow { fill: var(--m-border); }
+.edge-dashed-arrow { fill: var(--m-text-muted); }
 </style>
 </head>
 <body>
@@ -979,27 +912,27 @@ function openEditor(stepId) {
     <div class="section-row"><label class="label">System Prompt</label>
       <textarea class="textarea" rows="4" spellcheck="false">${esc(s.systemPrompt)}</textarea></div>
     <div class="section-row"><label class="label">Model</label>
-      <select class="select" style="font-family:'Geist Sans',sans-serif;font-size:13px">
+      <select class="select" style="font-family:'Geist',sans-serif;font-size:13px">
         ${modelOpts.map(m => `<option value="${m}"${m===s.model?' selected':''}>${shortModel(m)}</option>`).join('')}
       </select></div>
     <div class="section-row"><label class="label">Max Turns</label>
-      <input class="input" type="number" value="${s.maxTurns}" min="1" max="50" style="font-family:'Geist Sans',sans-serif;font-size:13px;width:80px"></div>`);
+      <input class="input" type="number" value="${s.maxTurns}" min="1" max="50" style="font-family:'Geist',sans-serif;font-size:13px;width:80px"></div>`);
 
   // Context
   html += sectionBlock('context', 'Context', true, `
     <div class="section-row"><label class="label">Depth</label>
-      <select class="select" style="font-family:'Geist Sans',sans-serif;font-size:13px">
+      <select class="select" style="font-family:'Geist',sans-serif;font-size:13px">
         ${depthOpts.map(d => `<option value="${d}"${d===s.depth?' selected':''}>${d}</option>`).join('')}
       </select></div>
     <div class="section-row"><label class="label">Sources</label>
       <div class="chips-wrap">${s.sources.map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div></div>
     <div class="section-row"><label class="label">Token Budget</label>
-      <input class="input" type="number" value="${s.tokenBudget}" step="1000" style="font-family:'Geist Sans',sans-serif;font-size:13px;width:110px"></div>`);
+      <input class="input" type="number" value="${s.tokenBudget}" step="1000" style="font-family:'Geist',sans-serif;font-size:13px;width:110px"></div>`);
 
   // Facts
   html += sectionBlock('facts', 'Facts', false, `
     <div class="section-row"><label class="label">Requires</label>
-      <div class="chips-wrap">${s.requires.length ? s.requires.map(r => `<span class="chip">${esc(r)}</span>`).join('') : '<span style="color:var(--text-muted);font-size:11px">None</span>'}</div></div>
+      <div class="chips-wrap">${s.requires.length ? s.requires.map(r => `<span class="chip">${esc(r)}</span>`).join('') : '<span style="color:var(--m-text-muted);font-size:11px">None</span>'}</div></div>
     <div class="section-row"><label class="label">Publishes</label>
       <div class="chips-wrap">${s.publishes.map(p => `<span class="chip">${esc(p)}</span>`).join('')}</div></div>`);
 
@@ -1008,11 +941,11 @@ function openEditor(stepId) {
     html += sectionBlock('cond', 'Conditions', false, `
       <div class="section-row"><label class="label">When</label>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-          <input class="input" style="width:120px;font-family:'Geist Sans',sans-serif;font-size:13px" value="${esc(s.when.fact)}" placeholder="fact key">
-          <select class="select" style="width:100px;font-family:'Geist Sans',sans-serif;font-size:13px">
+          <input class="input" style="width:120px;font-family:'Geist',sans-serif;font-size:13px" value="${esc(s.when.fact)}" placeholder="fact key">
+          <select class="select" style="width:100px;font-family:'Geist',sans-serif;font-size:13px">
             ${opOpts.map(o => `<option value="${o}"${o===s.when.op?' selected':''}>${o}</option>`).join('')}
           </select>
-          <input class="input" style="width:100px;font-family:'Geist Sans',sans-serif;font-size:13px" value="${esc(s.when.value)}" placeholder="value">
+          <input class="input" style="width:100px;font-family:'Geist',sans-serif;font-size:13px" value="${esc(s.when.value)}" placeholder="value">
         </div></div>`);
   }
 
@@ -1020,11 +953,11 @@ function openEditor(stepId) {
   if (s.retry) {
     html += sectionBlock('retry', 'Retry', false, `
       <div class="section-row"><label class="label">Target Step</label>
-        <input class="input" value="${esc(s.retry.step)}" readonly style="font-family:'Geist Sans',sans-serif;font-size:13px;width:140px;opacity:0.6"></div>
+        <input class="input" value="${esc(s.retry.step)}" readonly style="font-family:'Geist',sans-serif;font-size:13px;width:140px;opacity:0.6"></div>
       <div class="section-row"><label class="label">Max Attempts</label>
-        <input class="input" type="number" value="${s.retry.maxAttempts}" min="1" max="10" style="font-family:'Geist Sans',sans-serif;font-size:13px;width:80px"></div>
+        <input class="input" type="number" value="${s.retry.maxAttempts}" min="1" max="10" style="font-family:'Geist',sans-serif;font-size:13px;width:80px"></div>
       <div class="section-row"><label class="label">On Max Attempts</label>
-        <select class="select" style="font-family:'Geist Sans',sans-serif;font-size:13px;width:140px">
+        <select class="select" style="font-family:'Geist',sans-serif;font-size:13px;width:140px">
           <option value="continue" selected>continue</option><option value="fail">fail</option><option value="skip">skip</option>
         </select></div>`);
   }
@@ -1099,9 +1032,9 @@ function renderContextDiff() {
       </tbody>
     </table>
     <div class="savings-row">
-      <span style="color:var(--text-secondary);font-size:11px">vs flat baseline (${baseline.toLocaleString()} tok / $${baselineCost.toFixed(3)}):</span>
+      <span style="color:var(--m-text-secondary);font-size:11px">vs flat baseline (${baseline.toLocaleString()} tok / $${baselineCost.toFixed(3)}):</span>
       <span class="savings-num">\u2212${pctSaved}%</span>
-      <span style="color:var(--text-secondary);font-size:11px">saving</span>
+      <span style="color:var(--m-text-secondary);font-size:11px">saving</span>
       <span class="savings-num">$${costSaved}/run</span>
     </div>`;
 }
